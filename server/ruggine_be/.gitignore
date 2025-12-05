@@ -1,0 +1,69 @@
+# Node dependencies
+client/node_modules/
+client/.npm/
+client/.yarn/
+client/.pnpm-store/
+
+# Build output
+client/dist/
+client/build/
+
+# Logs
+client/npm-debug.log*
+client/yarn-debug.log*
+client/yarn-error.log*
+client/pnpm-debug.log*
+
+# Environment variables
+client/.env
+client/.env.*
+client/.env.local
+client/.env.development.local
+client/.env.production.local
+
+# Vite cache
+client/.vite/
+client/.vite_deps/
+
+# Editor junk
+client/.DS_Store
+client/.vscode/
+client/.idea/
+
+# Cargo build output
+server/target/
+
+# Rust/Clippy/Rustfmt logs
+server/*.log
+
+# Backup files
+server/*.rs.bk
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Editor configs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# OS trash
+.trash/
+*.tmp
+*~
+
+
+# Tauri build
+src-tauri/target/
+src-tauri/.cargo/
+src-tauri/dist/
+
+# Electron
+electron/dist/
+electron/out/
+electron/node_modules/
