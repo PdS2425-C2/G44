@@ -11,29 +11,39 @@
 
 -   association
 
-    | Field      | Type     |
-    | ---------- | -------- |
-    | user_id    | int      |
-    | group_id   | int      |
-    | ts_join_at | datetime |
+    | Field    | Type           |
+    | -------- | -------------- |
+    | user_id  | int (FK user)  |
+    | group_id | int (FK group) |
+    | join_at  | datetime       |
 
 -   group
-
-    | Field         | Type     |
-    | ------------- | -------- |
-    | id            | int      |
-    | name          | string   |
-    | ts_created_at | datetime |
-
--   message
 
     | Field      | Type     |
     | ---------- | -------- |
     | id         | int      |
-    | ts_sent_at | datetime |
-    | user_id    | int      |
-    | group_id   | int      |
-    | content    | string   |
+    | name       | string   |
+    | created_at | datetime |
+
+-   message
+
+    | Field    | Type           |
+    | -------- | -------------- |
+    | id       | int            |
+    | user_id  | int (FK user)  |
+    | group_id | int (FK group) |
+    | content  | string         |
+    | sent_at  | datetime       |
+
+-   request
+  
+    | Field    | Type           |
+    | -------- | -------------- |
+    | id       | int            |
+    | from     | int (FK user)  |
+    | to       | int (FK user)  |
+    | group_id | int (FK group) |
+    | sent_at  | datetime       |
 
 # User Requirements
 
@@ -41,12 +51,17 @@
 
     After logging in, the user’s landing page must show the list of group names they belong to, along with a button to create a new group.
 
+-   Invitation
+    
+    To start a new group, a user must send an invitation request to other users.
+    The invited users must then accept the request for the group to be officially created and shown in the landing page.
+
 -   Group Selection
 
     When the user clicks on a group, the application must display all messages posted after the user joined the group and allow:
 
     -   sending new messages
-    -   adding users to that group
+    -   sending invitation to other users to join the group
 
 -   Leave Group
 
