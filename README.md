@@ -140,7 +140,7 @@ These endpoints are based on JS session management, with Axum and Tower may be v
             {
                 "id": "string",
                 "name": "string",
-                "ts_created_at": "string"
+                "created_at": "string"
             },
             ...
         ]
@@ -166,7 +166,7 @@ These endpoints are based on JS session management, with Axum and Tower may be v
         {
             "id": "string",
             "name": "string",
-            "ts_created_at": "string"
+            "created_at": "string"
         }
         ```
 
@@ -223,10 +223,10 @@ The messages sent/received in a group aren't described here because they are han
         [
             {
                 "id": "string",
-                "ts_sent_at": "string",
                 "name": "string",   # o `user_id` ??
                 "group_id": "string",
-                "content": "string"
+                "content": "string",
+                "sent_at": "string",
             },
             ...
         ]
