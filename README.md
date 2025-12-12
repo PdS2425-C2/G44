@@ -36,7 +36,7 @@
     | sent_at  | datetime       |
 
 -   request
-  
+
     | Field    | Type           |
     | -------- | -------------- |
     | id       | int            |
@@ -52,7 +52,7 @@
     After logging in, the user’s landing page must show the list of group names they belong to, along with a button to create a new group.
 
 -   Invitation
-    
+
     To start a new group, a user must send an invitation request to other users.
     The invited users must then accept the request for the group to be officially created and shown in the landing page.
 
@@ -124,11 +124,38 @@ These endpoints are based on JS session management, with Axum and Tower may be v
         -   401 Unauthorized - No active session found
         -   500 Internal Server Error - An unexpected error occurred on the server
 
+## Users
+
+-   **GET** `/api/users`
+
+    -   Description: Get all users filtered by username containing the query string
+    -   Query parameters:
+
+        -   query: string, filter users by username containing the query string
+        -   limit (optional): integer, number of users to return
+
+    -   Response:
+
+        ```json
+        [
+            {
+                "id": "string",
+                "name": "string",
+                "username": "string"
+            },
+            ...
+        ]
+        ```
+
+    -   Errors:
+        -   401 Unauthorized - No active session found
+        -   500 Internal Server Error - An unexpected error occurred on the server
+
 ## Groups
 
 -   **GET** `/api/groups`
 
-    - Description: Get all groups that a user belongs to sorted by creation date, can filter with limit and offset
+    -   Description: Get all groups that a user belongs to sorted by creation date, can filter with limit and offset
 
     -   Request parameters:
         -   limit (optional): integer, number of groups to return
@@ -152,12 +179,13 @@ These endpoints are based on JS session management, with Axum and Tower may be v
         -   500 Internal Server Error - An unexpected error occurred on the server
 
 -   **POST** `/api/groups`
-    - Description: Create a new group
+
+    -   Description: Create a new group
 
     -   Request Body:
         ```json
         {
-            "name": "string",
+            "name": "string"
         }
         ```
     -   Response:
@@ -176,26 +204,9 @@ These endpoints are based on JS session management, with Axum and Tower may be v
         -   403 Forbidden - User does not have access to create a group
         -   500 Internal Server Error - An unexpected error occurred on the server
 
--  **POST** `/api/groups/{group_id}/users`
-    - Description: Add a user to a group
+-   **DELETE** `/api/groups/{group_id}/leave` [_Non mi piace come nome, se vi viene in mente qualcosa di meglio cambiatelo_]
 
-    -   Request Body:
-        ```json
-        {
-            "username": "string",
-        }
-        ```
-    -   Response: 204 No Content
-
-    -   Errors:
-        -   400 Bad Request - The request body is malformed
-        -   401 Unauthorized - No active session found
-        -   403 Forbidden - User does not have access to the requested resource
-        -   404 Not Found - The specified group or user does not exist
-        -   500 Internal Server Error - An unexpected error occurred on the server
-
-- **DELETE** `/api/groups/{group_id}/users`
-    - Description: Leave a group
+    -   Description: Leave a group
 
     -   Request parameters: None
     -   Response: 204 No Content
@@ -206,13 +217,107 @@ These endpoints are based on JS session management, with Axum and Tower may be v
         -   404 Not Found - The specified group does not exist
         -   500 Internal Server Error - An unexpected error occurred on the server
 
+-   **GET** `/api/groups/{group_id}/members`
+
+    -   Description: Get all members of a group
+
+    -   Request parameters: None
+    -   Response:
+
+        ```json
+        [
+            {
+                "id": "string",
+                "name": "string",
+                "username": "string"
+            },
+            ...
+        ]
+        ```
+
+    -   Errors:
+        -   401 Unauthorized - No active session found
+        -   403 Forbidden - User does not have access to the requested resource
+        -   404 Not Found - The specified group does not exist
+        -   500 Internal Server Error - An unexpected error occurred on the server
+
+## Invitations (Requests)
+
+-   **GET** `/api/requests`
+    -   Description: Get all pending invitation requests for the logged-in user
+
+    -   Request parameters: None
+    -   Response:
+
+        ```json
+        [
+            {
+                "id": "string",
+                "from": {
+                    "id": "string",
+                    "name": "string",
+                    "username": "string"
+                },
+                "group": {
+                    "id": "string",
+                    "name": "string",
+                    "created_at": "string"
+                },
+                "sent_at": "string"
+            },
+            ...
+        ]
+        ```
+
+    -   Errors:
+        -   401 Unauthorized - No active session found
+        -   500 Internal Server Error - An unexpected error occurred on the server
+
+-  **POST** `/api/groups/{group_id}/requests`
+
+    -   Description: Send an invitation request to a user to join a group
+
+    -   Request Body:
+        ```json
+        {
+            "to_username": "string" # valutare se usare l'id invece di username
+        }
+        ```
+    -   Response: 201 Created
+
+    -   Errors:
+        -   400 Bad Request - The request body is malformed
+        -   401 Unauthorized - No active session found
+        -   403 Forbidden - User does not have access to the requested resource
+        -   404 Not Found - The specified group or user does not exist
+        -   500 Internal Server Error - An unexpected error occurred on the server
+
+- **PATCH** `/api/requests/{request_id}`
+  
+    -   Description: Accept or reject an invitation request
+
+    -   Request Body:
+        ```json
+        {
+            "status": "accept" | "reject"
+        }
+        ```
+    -   Response: 204 No Content
+
+    -   Errors:
+        -   400 Bad Request - The request body is malformed
+        -   401 Unauthorized - No active session found
+        -   403 Forbidden - User does not have access to the requested resource
+        -   404 Not Found - The specified request does not exist
+        -   500 Internal Server Error - An unexpected error occurred on the server
+
 ## Messages
 
 The messages sent/received in a group aren't described here because they are handled by WebSocket API.
 
 -   **GET** `/api/groups/{group_id}/messages`
 
-    - Description: Get all messages in a group posted after the user joined the group, sorted by sent date, can filter with limit and offset
+    -   Description: Get all messages in a group posted after the user joined the group, sorted by sent date, can filter with limit and offset
 
     -   Request parameters:
         -   limit (optional, default = 100 ??): integer, number of messages to return
@@ -237,6 +342,6 @@ The messages sent/received in a group aren't described here because they are han
         -   403 Forbidden - User does not have access to the requested resource
         -   500 Internal Server Error - An unexpected error occurred on the server
 
-
 # WebSocket API
+
 ...
