@@ -74,7 +74,7 @@
 
 These endpoints are based on JS session management, with Axum and Tower may be variate.
 
--   **POST** `/api/sessions`
+-   **POST** `/api/sessions` (login)
 
     -   Request Body:
         ```json
@@ -98,7 +98,7 @@ These endpoints are based on JS session management, with Axum and Tower may be v
         -   401 Unauthorized: Invalid username or password
         -   500 Internal Server Error - An unexpected error occurred on the server
 
--   **GET** `/api/sessions`
+-   **GET** `/api/sessions` (whoami)
 
     -   Request parameters: None
     -   Response:
