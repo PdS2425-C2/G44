@@ -62,6 +62,7 @@ async fn main() {
         .route("/api/sessions", post(routes::sessions::post_sessions))
         .route("/api/sessions", get(routes::sessions::get_sessions))
         .route("/api/sessions", delete(routes::sessions::delete_sessions))
+        .route("/api/groups", get(routes::groups::get_groups))
         .layer(
             TraceLayer::new_for_http()
                 .make_span_with(DefaultMakeSpan::new().level(Level::INFO))
