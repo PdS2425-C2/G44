@@ -31,9 +31,21 @@ const logOut = async () => {
   throw await res.text();
 };
 
+const getGroups = async () => {
+  const res = await fetch(`/api/groups`, {
+    credentials: 'include',
+  });
+
+  if (res.ok) return await res.json();
+  throw await res.text();
+};
+
+
+
 const API = {
   logIn, 
   logOut,
-  getUserInfo
+  getUserInfo,
+  getGroups      
 };
 export default API;
