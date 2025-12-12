@@ -1,0 +1,10 @@
+/Users/alberto/Desktop/ProgettoPDS/G44/server/ruggine_be/target/debug/deps/tower_cookies-e3f142c204620ab3.d: /Users/alberto/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tower-cookies-0.10.0/src/lib.rs /Users/alberto/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tower-cookies-0.10.0/src/extract.rs /Users/alberto/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tower-cookies-0.10.0/src/service/mod.rs /Users/alberto/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tower-cookies-0.10.0/src/service/future.rs
+
+/Users/alberto/Desktop/ProgettoPDS/G44/server/ruggine_be/target/debug/deps/libtower_cookies-e3f142c204620ab3.rlib: /Users/alberto/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tower-cookies-0.10.0/src/lib.rs /Users/alberto/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tower-cookies-0.10.0/src/extract.rs /Users/alberto/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tower-cookies-0.10.0/src/service/mod.rs /Users/alberto/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tower-cookies-0.10.0/src/service/future.rs
+
+/Users/alberto/Desktop/ProgettoPDS/G44/server/ruggine_be/target/debug/deps/libtower_cookies-e3f142c204620ab3.rmeta: /Users/alberto/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tower-cookies-0.10.0/src/lib.rs /Users/alberto/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tower-cookies-0.10.0/src/extract.rs /Users/alberto/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tower-cookies-0.10.0/src/service/mod.rs /Users/alberto/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tower-cookies-0.10.0/src/service/future.rs
+
+/Users/alberto/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tower-cookies-0.10.0/src/lib.rs:
+/Users/alberto/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tower-cookies-0.10.0/src/extract.rs:
+/Users/alberto/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tower-cookies-0.10.0/src/service/mod.rs:
+/Users/alberto/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tower-cookies-0.10.0/src/service/future.rs:

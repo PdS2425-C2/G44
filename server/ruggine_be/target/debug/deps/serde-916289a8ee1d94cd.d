@@ -1,0 +1,14 @@
+/Users/alberto/Desktop/ProgettoPDS/G44/server/ruggine_be/target/debug/deps/serde-916289a8ee1d94cd.d: /Users/alberto/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /Users/alberto/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /Users/alberto/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /Users/alberto/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /Users/alberto/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /Users/alberto/Desktop/ProgettoPDS/G44/server/ruggine_be/target/debug/build/serde-003736f7f5663e40/out/private.rs
+
+/Users/alberto/Desktop/ProgettoPDS/G44/server/ruggine_be/target/debug/deps/libserde-916289a8ee1d94cd.rlib: /Users/alberto/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /Users/alberto/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /Users/alberto/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /Users/alberto/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /Users/alberto/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /Users/alberto/Desktop/ProgettoPDS/G44/server/ruggine_be/target/debug/build/serde-003736f7f5663e40/out/private.rs
+
+/Users/alberto/Desktop/ProgettoPDS/G44/server/ruggine_be/target/debug/deps/libserde-916289a8ee1d94cd.rmeta: /Users/alberto/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /Users/alberto/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /Users/alberto/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /Users/alberto/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /Users/alberto/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /Users/alberto/Desktop/ProgettoPDS/G44/server/ruggine_be/target/debug/build/serde-003736f7f5663e40/out/private.rs
+
+/Users/alberto/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs:
+/Users/alberto/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs:
+/Users/alberto/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs:
+/Users/alberto/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs:
+/Users/alberto/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs:
+/Users/alberto/Desktop/ProgettoPDS/G44/server/ruggine_be/target/debug/build/serde-003736f7f5663e40/out/private.rs:
+
+# env-dep:OUT_DIR=/Users/alberto/Desktop/ProgettoPDS/G44/server/ruggine_be/target/debug/build/serde-003736f7f5663e40/out
