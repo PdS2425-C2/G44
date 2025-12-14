@@ -185,7 +185,8 @@ These endpoints are based on JS session management, with Axum and Tower may be v
     -   Request Body:
         ```json
         {
-            "name": "string"
+            "name": "string",
+            "invitees": []
         }
         ```
     -   Response:
