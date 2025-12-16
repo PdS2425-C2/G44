@@ -67,6 +67,24 @@ const searchUsers = async (query) => {
   if (res.ok) return await res.json();
   throw await res.text();
 };
+const getRequests = async () => {
+  const res = await fetch(`/api/requests`, {
+    credentials: 'include'
+  });
+  if (res.ok) return await res.json();
+  throw await res.text();
+};
+
+const patchRequest = async (id, status) => {
+  const res = await fetch(`/api/requests/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ status })
+  });
+
+  if (!res.ok) throw await res.text();
+};
 
 const API = {
   logIn, 
@@ -74,6 +92,8 @@ const API = {
   getUserInfo,
   getGroups,
   createGroup,
-  searchUsers      
+  searchUsers, 
+  getRequests,
+  patchRequest    
 };
 export default API;

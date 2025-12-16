@@ -3,7 +3,7 @@ import { Outlet } from 'react-router';
 import NavHeader from './NavHeader';
 import { useEffect } from 'react';
 
-function DefaultLayout({ loggedIn, user, handleLogout, message, setMessage }) {
+function DefaultLayout({ loggedIn, user, handleLogout, message, setMessage, invitations, onInvitationClick }) {
   useEffect(() => { 
     if (message) { 
       if (message.type === 'danger') {
@@ -18,7 +18,7 @@ function DefaultLayout({ loggedIn, user, handleLogout, message, setMessage }) {
 
   return (
     <>
-      {loggedIn && <NavHeader loggedIn={loggedIn} user={user} handleLogout={handleLogout}/>}
+      {loggedIn && <NavHeader loggedIn={loggedIn} user={user} handleLogout={handleLogout} invitations={invitations} onInvitationClick={onInvitationClick} />}
 
       {message && (
         <Alert variant={message.type || 'info'}
