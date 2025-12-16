@@ -4,7 +4,7 @@ mod error;
 mod routes;
 mod state;
 
-use axum::{routing::{get, post, delete}, Router};
+use axum::{routing::{get, post, delete, patch}, Router};
 use sqlx::sqlite::SqlitePoolOptions;                // serve per creare una connection pool
 use state::AppState;                                // stato globale clonato e condiviso tra tutte le request
 use tower_cookies::CookieManagerLayer;              // layer di tower che gestisce i cookie
@@ -65,6 +65,8 @@ async fn main() {
         .route("/api/groups", get(routes::groups::get_groups))
         .route("/api/groups", post(routes::groups::post_groups))
         .route("/api/users", get(routes::users::get_users))
+        .route("/api/requests", get(routes::requests::get_requests))
+        .route("/api/requests/:id", patch(routes::requests::patch_request))
         .layer(
             TraceLayer::new_for_http()
                 .make_span_with(DefaultMakeSpan::new().level(Level::INFO))

@@ -58,7 +58,7 @@ pub async fn get_groups(
         FROM "group" g
         JOIN association a ON a.group_id = g.id
         WHERE a.user_id = ?
-        ORDER BY g.created_at ASC
+        ORDER BY g.created_at DESC
         LIMIT ? OFFSET ?
         "#,
         user_id,
