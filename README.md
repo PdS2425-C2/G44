@@ -345,4 +345,59 @@ The messages sent/received in a group aren't described here because they are han
 
 # WebSocket API
 
-...
+- **GET** `/ws/notifications`
+  - Description: Establish a WebSocket connection to receive real-time notifications for invitation requests.
+  - Request parameters: None
+  - Messages:
+    -   Invitation Request Notification:
+        ```json
+        {
+            "type": "invitation.created",
+            "data": {
+                "request_id": "int",
+                "from": {
+                    "id": "int",
+                    "name": "string",
+                    "username": "string"
+                },
+                "group": {
+                    "id": "int",
+                    "name": "string",
+                    "created_at": "string"
+                },
+                "sent_at": "string"
+            }
+        }
+        ```
+
+- **GET** `/ws/groups/{group_id}/messages`
+    - Description: Establish a WebSocket connection to send and receive real-time messages in a group
+    - Request parameters: None
+    - Messages:
+        -   Send Message:
+            ```json
+            {
+                "type": "message.send",
+                "data": {
+                    "content": "string"
+                }
+            }
+            ```
+        -   Receive Message:
+            ```json
+            {
+                "type": "message.received",
+                "data": {
+                    "id": "int",
+                    "user": {
+                        "id": "int",
+                        "name": "string",
+                        "username": "string"
+                    },
+                    "group_id": "int",
+                    "content": "string",
+                    "sent_at": "string"
+                }
+            }
+            ```
+            
