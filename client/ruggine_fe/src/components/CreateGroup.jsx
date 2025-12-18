@@ -26,9 +26,17 @@ function CreateGroup({ show, onClose, onCreated }) {
     setLoading(true);
 
     try {
+      const group = await API.createGroup(name);
+      
       const usernames = invitees.map(u => u.username);
-      const group = await API.createGroup(name, usernames);
-
+      for (const username of usernames) {
+        await API.createRequest(
+          group.id,
+          username
+        );
+      }
+      
+      
       onCreated(group);
       onClose();
 
@@ -36,6 +44,7 @@ function CreateGroup({ show, onClose, onCreated }) {
       setName("");
       setInvitees([]);
     } catch (err) {
+      console.log(err);
       setError(err);
     } finally {
       setLoading(false);
@@ -51,7 +60,7 @@ function CreateGroup({ show, onClose, onCreated }) {
       <Form onSubmit={handleSubmit}>
         <Modal.Body>
 
-          {error && <Alert variant="danger">{error}</Alert>}
+          {/* {error && <Alert variant="danger">{error}</Alert>} */}
 
           <Form.Group className="mb-3">
             <Form.Label>Nome gruppo</Form.Label>

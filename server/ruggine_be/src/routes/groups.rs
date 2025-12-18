@@ -27,7 +27,6 @@ pub struct GroupsQuery {
 #[derive(Deserialize)]
 pub struct CreateGroupReq {
     pub name: String,
-    pub invitees: Vec<String>,
 }
 
 // GET /api/groups
@@ -121,27 +120,6 @@ pub async fn post_groups(
     )
     .execute(&mut *tx)
     .await?;
-
-    // user invitations
-    for username in req.invitees {
-        let user = sqlx::query!(
-            r#"SELECT id FROM user WHERE username = ?"#,
-            username
-        )
-        .fetch_optional(&mut *tx)
-        .await?
-        .ok_or(ApiError::BadRequest("user not found"))?;
-
-        sqlx::query!(
-            r#"INSERT INTO request(group_id, inviter_id, invitee_id, created_at)
-               VALUES (?, ?, ?, datetime('now'))"#,
-            group.id,
-            user_id,
-            user.id
-        )
-        .execute(&mut *tx)
-        .await?;
-    }
 
     tx.commit().await?;
 

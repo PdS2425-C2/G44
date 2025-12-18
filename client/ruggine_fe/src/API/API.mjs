@@ -40,14 +40,13 @@ const getGroups = async () => {
   throw await res.text();
 };
 
-const createGroup = async (name, invitees) => {
+const createGroup = async (name) => {
   const res = await fetch(`/api/groups`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     body: JSON.stringify({
-      name,
-      invitees
+      name
     })
   });
 
@@ -75,6 +74,18 @@ const getRequests = async () => {
   throw await res.text();
 };
 
+const createRequest = async (groupId, username) => {
+  const res = await fetch(`/api/groups/${groupId}/requests`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ username })
+  });
+
+  if (res.ok) return;
+  throw await res.text();
+}
+
 const patchRequest = async (id, status) => {
   const res = await fetch(`/api/requests/${id}`, {
     method: 'PATCH',
@@ -83,7 +94,8 @@ const patchRequest = async (id, status) => {
     body: JSON.stringify({ status })
   });
 
-  if (!res.ok) throw await res.text();
+  if (res.ok) return await res.json();
+  throw await res.text();
 };
 
 const API = {
@@ -94,6 +106,7 @@ const API = {
   createGroup,
   searchUsers, 
   getRequests,
+  createRequest,
   patchRequest    
 };
 export default API;

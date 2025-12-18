@@ -10,8 +10,7 @@ import {
 import API from "../API/API.mjs";
 import CreateGroupModal from "./CreateGroup";
 
-function Home({ user }) {
-  const [groups, setGroups] = useState([]);
+function Home({ user, groups, setGroups, handleGroupCreated }) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -28,9 +27,7 @@ function Home({ user }) {
       });
   }, []);
 
-  const handleGroupCreated = (group) => {
-    setGroups(gs => [group, ...gs]);
-  };
+
 
   return (
     <Container className="mt-4">

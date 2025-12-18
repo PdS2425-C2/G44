@@ -11,6 +11,8 @@ use tower_cookies::CookieManagerLayer;              // layer di tower che gestis
 use tower_http::trace::{TraceLayer, DefaultMakeSpan, DefaultOnResponse};
 use tracing::Level;
 use tracing_subscriber::{fmt, EnvFilter};
+use std::{collections::HashMap, sync::Arc};
+use tokio::sync::RwLock;
 
 
 fn init_tracing() {
@@ -55,6 +57,7 @@ async fn main() {
         pool,
         cookie_secret: cookie_secret.into_bytes(),
         session_ttl_secs: 60 * 60 * 24, // 24h
+        notification_peers: Arc::new(RwLock::new(HashMap::new())),
     };
     
     // router axum
@@ -62,11 +65,13 @@ async fn main() {
         .route("/api/sessions", post(routes::sessions::post_sessions))
         .route("/api/sessions", get(routes::sessions::get_sessions))
         .route("/api/sessions", delete(routes::sessions::delete_sessions))
+        .route("/api/users", get(routes::users::get_users))
         .route("/api/groups", get(routes::groups::get_groups))
         .route("/api/groups", post(routes::groups::post_groups))
-        .route("/api/users", get(routes::users::get_users))
+        .route("/api/groups/:group_id/requests", post(routes::requests::post_group_request))
         .route("/api/requests", get(routes::requests::get_requests))
         .route("/api/requests/:id", patch(routes::requests::patch_request))
+        .route("/ws/notifications", get(routes::ws::ws_notifications))
         .layer(
             TraceLayer::new_for_http()
                 .make_span_with(DefaultMakeSpan::new().level(Level::INFO))
