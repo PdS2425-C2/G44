@@ -2,6 +2,7 @@ use axum::extract::ws::Message;
 use axum::{
     Json,
     extract::{Path, State},
+    http::StatusCode,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -92,7 +93,7 @@ pub async fn post_group_request(
     cookies: Cookies,
     Path(group_id): Path<i64>,
     Json(body): Json<PostRequestBody>,
-) -> Result<(), ApiError> {
+) -> Result<StatusCode, ApiError> {
     // 1. auth inviter
     let sid = cookies.get("sid").ok_or(ApiError::Unauthorized)?;
     let payload =
@@ -169,7 +170,8 @@ pub async fn post_group_request(
         }
     }
 
-    Ok(())
+    Ok(StatusCode::NO_CONTENT)
+
 }
 
 #[derive(Deserialize)]
@@ -220,6 +222,9 @@ pub async fn patch_request(
         sqlx::query!(r#"DELETE FROM request WHERE id = ?"#, request_id)
             .execute(&mut *tx)
             .await?;
+
+        tx.commit().await?;
+
 
         return Ok(Json(GroupDto {
             id: group.id,

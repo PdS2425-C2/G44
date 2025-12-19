@@ -5,9 +5,9 @@ import {
   Badge,
   Spinner
 } from "react-bootstrap";
-import API from "../API/API.mjs";
+import API from '../../api/client';
 
-function UserMultiSelect({ value, onChange }) {
+const UserSelect = ({ value, onChange }) => {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -46,8 +46,6 @@ function UserMultiSelect({ value, onChange }) {
 
   return (
     <Form.Group>
-      <Form.Label>Invita utenti</Form.Label>
-
       {/* utenti selezionati */}
       <div className="mb-2">
         {value.map(u => (
@@ -99,6 +97,6 @@ function UserMultiSelect({ value, onChange }) {
       )}
     </Form.Group>
   );
-}
+};
 
-export default UserMultiSelect;
+export default UserSelect;
