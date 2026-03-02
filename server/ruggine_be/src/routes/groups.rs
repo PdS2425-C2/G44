@@ -24,9 +24,13 @@ pub struct GroupsQuery {
     pub limit: Option<i64>,
     pub offset: Option<i64>,
 }
+#[derive(Deserialize)]
+pub struct CreateGroupReq {
+    pub name: String,
+}
 
 // GET /api/groups
-// Ritorna tutti i gruppi a cui l'utente appartiene
+// Returns all groups the user belongs to
 pub async fn get_groups(
     State(st): State<AppState>,
     cookies: Cookies,
@@ -53,7 +57,7 @@ pub async fn get_groups(
         FROM "group" g
         JOIN association a ON a.group_id = g.id
         WHERE a.user_id = ?
-        ORDER BY g.created_at ASC
+        ORDER BY g.created_at DESC
         LIMIT ? OFFSET ?
         "#,
         user_id,
@@ -74,4 +78,54 @@ pub async fn get_groups(
         .collect();
 
     Ok(Json(groups))
+}
+
+// POST /api/groups
+// Creates a new group and invites the specified users
+pub async fn post_groups(
+    State(st): State<AppState>,
+    cookies: Cookies,
+    Json(req): Json<CreateGroupReq>,
+) -> Result<Json<GroupDto>, ApiError> {
+
+    if req.name.trim().is_empty() {
+        return Err(ApiError::BadRequest("group name missing"));
+    }
+
+    // --- auth ---
+    let sid = cookies.get("sid").ok_or(ApiError::Unauthorized)?;
+    let payload =
+        verify_cookie_value(sid.value(), &st.cookie_secret)
+            .ok_or(ApiError::Unauthorized)?;
+    let user_id = payload.uid;
+
+    let mut tx = st.pool.begin().await?;
+
+    // create group
+    let group = sqlx::query!(
+        r#"INSERT INTO "group"(name, created_at)
+           VALUES (?, datetime('now'))
+           RETURNING id, name, created_at"#,
+        req.name
+    )
+    .fetch_one(&mut *tx)
+    .await?;
+
+    // group creator association
+    sqlx::query!(
+        r#"INSERT INTO association(user_id, group_id, join_at)
+           VALUES (?, ?, datetime('now'))"#,
+        user_id,
+        group.id
+    )
+    .execute(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    Ok(Json(GroupDto {
+        id: group.id,
+        name: group.name,
+        created_at: group.created_at,
+    }))
 }
