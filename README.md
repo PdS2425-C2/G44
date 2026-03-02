@@ -14,16 +14,17 @@
     | Field    | Type           |
     | -------- | -------------- |
     | user_id  | int (FK user)  |
-    | group_id | int (FK group) |
-    | join_at  | datetime       |
+    | chat_id | int (FK group) |
+    | joined_at  | datetime       |
 
--   group
+-   chat
 
     | Field      | Type     |
     | ---------- | -------- |
     | id         | int      |
     | name       | string   |
     | created_at | datetime |
+    | is_group | bool |
 
 -   message
 
@@ -31,7 +32,7 @@
     | -------- | -------------- |
     | id       | int            |
     | user_id  | int (FK user)  |
-    | group_id | int (FK group) |
+    | chat_id | int (FK group) |
     | content  | string         |
     | sent_at  | datetime       |
 
