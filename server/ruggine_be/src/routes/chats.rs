@@ -13,29 +13,29 @@ use crate::{
 
 // --------- DTOs ---------
 #[derive(Debug, Serialize)]
-pub struct GroupDto {
+pub struct ChatDto {
     pub id: i64,
-    pub name: String,
+    pub name: Option<String>,
     pub created_at: String,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct GroupsQuery {
+pub struct ChatsQuery {
     pub limit: Option<i64>,
     pub offset: Option<i64>,
 }
 #[derive(Deserialize)]
-pub struct CreateGroupReq {
+pub struct CreateChatReq {
     pub name: String,
 }
 
-// GET /api/groups
-// Returns all groups the user belongs to
-pub async fn get_groups(
+// GET /api/chats
+// Returns all chats the user belongs to
+pub async fn get_chats(
     State(st): State<AppState>,
     cookies: Cookies,
-    Query(params): Query<GroupsQuery>,
-) -> Result<Json<Vec<GroupDto>>, ApiError> {
+    Query(params): Query<ChatsQuery>,
+) -> Result<Json<Vec<ChatDto>>, ApiError> {
     // --- 1) Recupero cookie di sessione ---
     let sid_cookie = cookies
         .get("sid")
@@ -53,11 +53,11 @@ pub async fn get_groups(
     // --- 3) Query SQL ---
     let rows = sqlx::query!(
         r#"
-        SELECT g.id, g.name, g.created_at
-        FROM "group" g
-        JOIN association a ON a.group_id = g.id
+        SELECT c.id, c.name, c.created_at
+        FROM chat c
+        JOIN association a ON a.chat_id = c.id
         WHERE a.user_id = ?
-        ORDER BY g.created_at DESC
+        ORDER BY c.created_at DESC
         LIMIT ? OFFSET ?
         "#,
         user_id,
@@ -68,28 +68,28 @@ pub async fn get_groups(
     .await?;
 
     // --- 4) Conversione in DTO ---
-    let groups = rows
+    let chats = rows
         .into_iter()
-        .map(|r| GroupDto {
-            id: r.id.expect("group id missing"),
+        .map(|r| ChatDto {
+            id: r.id.expect("chat id missing"),
             name: r.name,
             created_at: r.created_at,
         })
         .collect();
 
-    Ok(Json(groups))
+    Ok(Json(chats))
 }
 
-// POST /api/groups
-// Creates a new group and invites the specified users
-pub async fn post_groups(
+// POST /api/chats
+// Creates a new chat and invites the specified users
+pub async fn post_chats(
     State(st): State<AppState>,
     cookies: Cookies,
-    Json(req): Json<CreateGroupReq>,
-) -> Result<Json<GroupDto>, ApiError> {
+    Json(req): Json<CreateChatReq>,
+) -> Result<Json<ChatDto>, ApiError> {
 
     if req.name.trim().is_empty() {
-        return Err(ApiError::BadRequest("group name missing"));
+        return Err(ApiError::BadRequest("chat name missing"));
     }
 
     // --- auth ---
@@ -101,31 +101,31 @@ pub async fn post_groups(
 
     let mut tx = st.pool.begin().await?;
 
-    // create group
-    let group = sqlx::query!(
-        r#"INSERT INTO "group"(name, created_at)
-           VALUES (?, datetime('now'))
-           RETURNING id, name, created_at"#,
+    // create chat
+    let chat = sqlx::query!(
+        r#"INSERT INTO chat(name, created_at, is_group)
+           VALUES (?, datetime('now'), 1)
+           RETURNING id, name, created_at, is_group"#,
         req.name
     )
     .fetch_one(&mut *tx)
     .await?;
 
-    // group creator association
+    // chat creator association
     sqlx::query!(
-        r#"INSERT INTO association(user_id, group_id, join_at)
+        r#"INSERT INTO association(user_id, chat_id, join_at)
            VALUES (?, ?, datetime('now'))"#,
         user_id,
-        group.id
+        chat.id
     )
     .execute(&mut *tx)
     .await?;
 
     tx.commit().await?;
 
-    Ok(Json(GroupDto {
-        id: group.id,
-        name: group.name,
-        created_at: group.created_at,
+    Ok(Json(ChatDto {
+        id: chat.id,
+        name: chat.name,
+        created_at: chat.created_at,
     }))
 }

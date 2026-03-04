@@ -15,7 +15,7 @@ pub struct RequestDto {
     pub id: i64,
     pub sent_at: String,
     pub from: UserDto,
-    pub group: GroupDto,
+    pub chat: ChatDto,
 }
 
 #[derive(Serialize)]
@@ -26,9 +26,9 @@ pub struct UserDto {
 }
 
 #[derive(Serialize)]
-pub struct GroupDto {
+pub struct ChatDto {
     pub id: i64,
-    pub name: String,
+    pub name: Option<String>,
     pub created_at: String,
 }
 
@@ -49,12 +49,12 @@ pub async fn get_requests(
           u.id AS from_id,
           u.name AS from_name,
           u.username AS from_username,
-          g.id AS group_id,
-          g.name AS group_name,
-          g.created_at AS group_created
+          c.id AS chat_id,
+          c.name AS chat_name,
+          c.created_at AS chat_created
         FROM request r
         JOIN user u ON r.inviter_id = u.id
-        JOIN "group" g ON r.group_id = g.id
+        JOIN chat c ON r.chat_id = c.id
         WHERE r.invitee_id = ?
         ORDER BY r.created_at DESC
         "#,
@@ -73,10 +73,10 @@ pub async fn get_requests(
                     name: r.from_name,
                     username: r.from_username,
                 },
-                group: GroupDto {
-                    id: r.group_id,
-                    name: r.group_name,
-                    created_at: r.group_created,
+                chat: ChatDto {
+                    id: r.chat_id,
+                    name: r.chat_name,
+                    created_at: r.chat_created,
                 },
             })
             .collect(),
@@ -88,10 +88,10 @@ pub struct PostRequestBody {
     pub username: String,
 }
 
-pub async fn post_group_request(
+pub async fn post_chat_request(
     State(st): State<AppState>,
     cookies: Cookies,
-    Path(group_id): Path<i64>,
+    Path(chat_id): Path<i64>,
     Json(body): Json<PostRequestBody>,
 ) -> Result<StatusCode, ApiError> {
     // 1. auth inviter
@@ -102,7 +102,7 @@ pub async fn post_group_request(
 
     let mut tx = st.pool.begin().await?;
 
-    // 2. trova invitee + group + inserisci richiesta
+    // 2. trova invitee + chat + inserisci richiesta
     // (pseudo-SQL, adatta ai tuoi nomi reali)
     let invitee = sqlx::query!(
         r#"SELECT id, name, username FROM user WHERE username = ?"#,
@@ -111,9 +111,9 @@ pub async fn post_group_request(
     .fetch_one(&mut *tx)
     .await?;
 
-    let group = sqlx::query!(
-        r#"SELECT id, name, created_at FROM "group" WHERE id = ?"#,
-        group_id
+    let chat = sqlx::query!(
+        r#"SELECT id, name, created_at FROM chat WHERE id = ?"#,
+        chat_id
     )
     .fetch_one(&mut *tx)
     .await?;
@@ -126,12 +126,12 @@ pub async fn post_group_request(
     .await?;
 
     let req = sqlx::query!(
-        r#"INSERT INTO request(inviter_id, invitee_id, group_id, created_at)
+        r#"INSERT INTO request(inviter_id, invitee_id, chat_id, created_at)
            VALUES (?, ?, ?, datetime('now'))
            RETURNING id, created_at"#,
         inviter_id,
         invitee.id,
-        group_id
+        chat_id
     )
     .fetch_one(&mut *tx)
     .await?;
@@ -148,10 +148,10 @@ pub async fn post_group_request(
                 "name": inviter.name,
                 "username": inviter.username,
             },
-            "group": {
-                "id": group.id,
-                "name": group.name,
-                "created_at": group.created_at, // già String nel tuo DTO
+            "chat": {
+                "id": chat.id,
+                "name": chat.name,
+                "created_at": chat.created_at, // già String nel tuo DTO
             },
             "sent_at": req.created_at,
         }
@@ -184,7 +184,7 @@ pub async fn patch_request(
     cookies: Cookies,
     Path(request_id): Path<i64>,
     Json(body): Json<PatchReq>,
-) -> Result<Json<GroupDto>, ApiError> {
+) -> Result<Json<ChatDto>, ApiError> {
     let sid = cookies.get("sid").ok_or(ApiError::Unauthorized)?;
     let payload =
         verify_cookie_value(sid.value(), &st.cookie_secret).ok_or(ApiError::Unauthorized)?;
@@ -193,7 +193,7 @@ pub async fn patch_request(
     let mut tx = st.pool.begin().await?;
 
     let req = sqlx::query!(
-        r#"SELECT group_id FROM request WHERE id = ? AND invitee_id = ?"#,
+        r#"SELECT chat_id FROM request WHERE id = ? AND invitee_id = ?"#,
         request_id,
         user_id
     )
@@ -203,18 +203,18 @@ pub async fn patch_request(
 
     if body.status == "accept" {
         sqlx::query!(
-            r#"INSERT INTO association(user_id, group_id, join_at)
+            r#"INSERT INTO association(user_id, chat_id, join_at)
                VALUES (?, ?, datetime('now'))"#,
             user_id,
-            req.group_id
+            req.chat_id
         )
         .execute(&mut *tx)
         .await?;
 
-        // Get the group
-        let group = sqlx::query!(
-            r#"SELECT id, name, created_at FROM "group" WHERE id = ?"#,
-            req.group_id
+        // Get the chat
+        let chat = sqlx::query!(
+            r#"SELECT id, name, created_at FROM chat WHERE id = ?"#,
+            req.chat_id
         )
         .fetch_one(&mut *tx)
         .await?;
@@ -226,10 +226,10 @@ pub async fn patch_request(
         tx.commit().await?;
 
 
-        return Ok(Json(GroupDto {
-            id: group.id,
-            name: group.name,
-            created_at: group.created_at,
+        return Ok(Json(ChatDto {
+            id: chat.id,
+            name: chat.name,
+            created_at: chat.created_at,
         }));
     }
 
@@ -238,9 +238,9 @@ pub async fn patch_request(
         .await?;
 
     tx.commit().await?;
-    Ok(Json(GroupDto {
+    Ok(Json(ChatDto {
         id: -1,
-        name: "".to_string(),
+        name: None,
         created_at: "".to_string(),
     }))
 }
