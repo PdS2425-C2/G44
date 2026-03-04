@@ -1,12 +1,21 @@
+// useGroups.jsx
 import { useEffect, useState } from 'react';
 import API from '../api/client';
+import { useAuth } from './useAuth'; 
 
 export const useGroupsState = () => {
+  const { loggedIn } = useAuth();
   const [groups, setGroups] = useState([]);
   const [loadingGroups, setLoadingGroups] = useState(true);
   const [groupsError, setGroupsError] = useState(null);
 
   useEffect(() => {
+    if (!loggedIn) {  
+      setGroups([]);
+      setLoadingGroups(false);
+      return;
+    }
+
     let cancelled = false;
     const loadGroups = async () => {
       try {
@@ -23,10 +32,8 @@ export const useGroupsState = () => {
       }
     };
     loadGroups();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    return () => { cancelled = true; };
+  }, [loggedIn]);  
 
   const addGroup = (group) => setGroups((prev) => [group, ...prev]);
 
