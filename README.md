@@ -14,7 +14,7 @@
     | Field    | Type           |
     | -------- | -------------- |
     | user_id  | int (FK user)  |
-    | chat_id | int (FK group) |
+    | chat_id | int (FK chat) |
     | joined_at  | datetime       |
 
 -   chat
@@ -32,7 +32,7 @@
     | -------- | -------------- |
     | id       | int            |
     | user_id  | int (FK user)  |
-    | chat_id | int (FK group) |
+    | chat_id | int (FK chat) |
     | content  | string         |
     | sent_at  | datetime       |
 
@@ -43,31 +43,31 @@
     | id       | int            |
     | from     | int (FK user)  |
     | to       | int (FK user)  |
-    | group_id | int (FK group) |
+    | chat_id | int (FK chat) |
     | sent_at  | datetime       |
 
 # User Requirements
 
 -   Login
 
-    After logging in, the user’s landing page must show the list of group names they belong to, along with a button to create a new group.
+    After logging in, the user’s landing page must show the list of chat names they belong to, along with a button to create a new chat.
 
 -   Invitation
 
-    To start a new group, a user must send an invitation request to other users.
-    The invited users must then accept the request for the group to be officially created and shown in the landing page.
+    To start a new chat, a user must send an invitation request to other users.
+    The invited users must then accept the request for the chat to be officially created and shown in the landing page.
 
--   Group Selection
+-   Chat Selection
 
-    When the user clicks on a group, the application must display all messages posted after the user joined the group and allow:
+    When the user clicks on a chat, the application must display all messages posted after the user joined the chat and allow:
 
     -   sending new messages
-    -   sending invitation to other users to join the group
+    -   sending invitation to other users to join the chat
 
--   Leave Group
+-   Leave Chat
 
-    The user must be able to leave a group.
-    If the user is the last member of the group, the group should be deleted.
+    The user must be able to leave a chat.
+    If the user is the last member of the chat, the chat should be deleted.
 
 # API Rest
 
@@ -152,15 +152,15 @@ These endpoints are based on JS session management, with Axum and Tower may be v
         -   401 Unauthorized - No active session found
         -   500 Internal Server Error - An unexpected error occurred on the server
 
-## Groups
+## Chats
 
--   **GET** `/api/groups`
+-   **GET** `/api/chats`
 
-    -   Description: Get all groups that a user belongs to sorted by creation date, can filter with limit and offset
+    -   Description: Get all chats that a user belongs to sorted by creation date, can filter with limit and offset
 
     -   Request parameters:
-        -   limit (optional): integer, number of groups to return
-        -   offset (optional): integer, number of groups to skip
+        -   limit (optional): integer, number of chats to return
+        -   offset (optional): integer, number of chats to skip
     -   Response:
 
         ```json
@@ -168,7 +168,8 @@ These endpoints are based on JS session management, with Axum and Tower may be v
             {
                 "id": "string",
                 "name": "string",
-                "created_at": "string"
+                "created_at": "string",
+                "is_group": true
             },
             ...
         ]
@@ -179,9 +180,10 @@ These endpoints are based on JS session management, with Axum and Tower may be v
         -   403 Forbidden - User does not have access to the requested resource
         -   500 Internal Server Error - An unexpected error occurred on the server
 
--   **POST** `/api/groups`
 
-    -   Description: Create a new group
+-   **POST** `/api/chats`
+
+    -   Description: Create a new chat
 
     -   Request Body:
         ```json
@@ -203,12 +205,40 @@ These endpoints are based on JS session management, with Axum and Tower may be v
     -   Errors:
         -   400 Bad Request - The request body is malformed
         -   401 Unauthorized - No active session found
-        -   403 Forbidden - User does not have access to create a group
+        -   403 Forbidden - User does not have access to create a chat
         -   500 Internal Server Error - An unexpected error occurred on the server
 
--   **DELETE** `/api/groups/{group_id}/leave` [_Non mi piace come nome, se vi viene in mente qualcosa di meglio cambiatelo_]
+-   **POST** `/api/chats/private`
 
-    -   Description: Leave a group
+    -   Description: Create a new private 1-to-1 chat with a user (no invitations). The chat is created immediately and both users are added as members.
+
+    -   Request Body:
+        ```json
+        {
+            "username": "string"
+        }
+        ```
+
+    -   Response:
+        ```json
+        {
+            "id": "string",
+            "name": "string",
+            "created_at": "string",
+            "is_group": false
+        }
+        ```
+
+    -   Errors:
+        -   400 Bad Request - username missing / cannot create private chat with yourself
+        -   401 Unauthorized - No active session found
+        -   404 Not Found - The specified user does not exist
+        -   500 Internal Server Error - An unexpected error occurred on the server
+
+
+-   **DELETE** `/api/chats/{chat_id}/leave` [_Non mi piace come nome, se vi viene in mente qualcosa di meglio cambiatelo_]
+
+    -   Description: Leave a chat
 
     -   Request parameters: None
     -   Response: 204 No Content
@@ -216,12 +246,12 @@ These endpoints are based on JS session management, with Axum and Tower may be v
     -   Errors:
         -   401 Unauthorized - No active session found
         -   403 Forbidden - User does not have access to the requested resource
-        -   404 Not Found - The specified group does not exist
+        -   404 Not Found - The specified chat does not exist
         -   500 Internal Server Error - An unexpected error occurred on the server
 
--   **GET** `/api/groups/{group_id}/members`
+-   **GET** `/api/chats/{chat_id}/members`
 
-    -   Description: Get all members of a group
+    -   Description: Get all members of a chat
 
     -   Request parameters: None
     -   Response:
@@ -240,7 +270,7 @@ These endpoints are based on JS session management, with Axum and Tower may be v
     -   Errors:
         -   401 Unauthorized - No active session found
         -   403 Forbidden - User does not have access to the requested resource
-        -   404 Not Found - The specified group does not exist
+        -   404 Not Found - The specified chat does not exist
         -   500 Internal Server Error - An unexpected error occurred on the server
 
 ## Invitations (Requests)
@@ -260,7 +290,7 @@ These endpoints are based on JS session management, with Axum and Tower may be v
                     "name": "string",
                     "username": "string"
                 },
-                "group": {
+                "chat": {
                     "id": "string",
                     "name": "string",
                     "created_at": "string"
@@ -275,9 +305,9 @@ These endpoints are based on JS session management, with Axum and Tower may be v
         -   401 Unauthorized - No active session found
         -   500 Internal Server Error - An unexpected error occurred on the server
 
--  **POST** `/api/groups/{group_id}/requests`
+-  **POST** `/api/chats/{chat_id}/requests`
 
-    -   Description: Send an invitation request to a user to join a group
+    -   Description: Send an invitation request to a user to join a chat
 
     -   Request Body:
         ```json
@@ -291,7 +321,7 @@ These endpoints are based on JS session management, with Axum and Tower may be v
         -   400 Bad Request - The request body is malformed
         -   401 Unauthorized - No active session found
         -   403 Forbidden - User does not have access to the requested resource
-        -   404 Not Found - The specified group or user does not exist
+        -   404 Not Found - The specified chat or user does not exist
         -   500 Internal Server Error - An unexpected error occurred on the server
 
 - **PATCH** `/api/requests/{request_id}`
@@ -315,11 +345,11 @@ These endpoints are based on JS session management, with Axum and Tower may be v
 
 ## Messages
 
-The messages sent/received in a group aren't described here because they are handled by WebSocket API.
+The messages sent/received in a chat aren't described here because they are handled by WebSocket API.
 
--   **GET** `/api/groups/{group_id}/messages`
+-   **GET** `/api/chats/{chat_id}/messages`
 
-    -   Description: Get all messages in a group posted after the user joined the group, sorted by sent date, can filter with limit and offset
+    -   Description: Get all messages in a chat posted after the user joined the chat, sorted by sent date, can filter with limit and offset
 
     -   Request parameters:
         -   limit (optional, default = 100 ??): integer, number of messages to return
@@ -331,7 +361,7 @@ The messages sent/received in a group aren't described here because they are han
             {
                 "id": "string",
                 "name": "string",   # o `user_id` ??
-                "group_id": "string",
+                "chat_id": "string",
                 "content": "string",
                 "sent_at": "string",
             },
@@ -361,7 +391,7 @@ The messages sent/received in a group aren't described here because they are han
                     "name": "string",
                     "username": "string"
                 },
-                "group": {
+                "chat": {
                     "id": "int",
                     "name": "string",
                     "created_at": "string"
@@ -371,8 +401,8 @@ The messages sent/received in a group aren't described here because they are han
         }
         ```
 
-- **GET** `/ws/groups/{group_id}/messages`
-    - Description: Establish a WebSocket connection to send and receive real-time messages in a group
+- **GET** `/ws/chats/{chat_id}/messages`
+    - Description: Establish a WebSocket connection to send and receive real-time messages in a chat
     - Request parameters: None
     - Messages:
         -   Send Message:
@@ -395,7 +425,7 @@ The messages sent/received in a group aren't described here because they are han
                         "name": "string",
                         "username": "string"
                     },
-                    "group_id": "int",
+                    "chat_id": "int",
                     "content": "string",
                     "sent_at": "string"
                 }

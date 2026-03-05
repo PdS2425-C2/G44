@@ -5,13 +5,14 @@ import { useGroups } from '../hooks/GroupsProvider';
 import CreateGroupModal from '../components/groups/CreateGroupModal';
 import GroupsList from '../components/groups/GroupsList';
 import MessageAlert from '../components/feedback/MessageAlert';
+import CreatePrivateChatModal from '../components/groups/CreatePrivateChatModal';
 
 const Home = () => {
     const { user } = useAuth();
     // const user = {};
     const { groups, loadingGroups, groupsError, addGroup } = useGroups();
     const [showModal, setShowModal] = useState(false);
-
+    const [showChatModal, setShowChatModal] = useState(false);
     return (
         <Container className="mt-4">
             <h2>Ciao, {user?.name} 👋</h2>
@@ -19,6 +20,10 @@ const Home = () => {
 
             <Button variant="primary" onClick={() => setShowModal(true)}>
                 + Crea gruppo
+            </Button>
+
+            <Button variant="outline-primary" onClick={() => setShowChatModal(true)}>
+                + Crea Chat
             </Button>
 
             {groupsError && (
@@ -52,6 +57,14 @@ const Home = () => {
                     setShowModal(false);
                 }}
             />
+            <CreatePrivateChatModal
+                show={showChatModal}
+                onHide={() => setShowChatModal(false)}
+                onCreated={(chat) => {
+                    addGroup(chat);       
+                    setShowChatModal(false);
+                }}
+                />
         </Container>
     );
 };

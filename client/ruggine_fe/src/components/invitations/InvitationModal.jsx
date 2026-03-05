@@ -11,7 +11,7 @@ const InvitationModal = ({ show, invitation, onAccept, onReject, onHide }) => {
       <Modal.Body>
         <p>
           <strong>{invitation.from.username}</strong> ti ha invitato nel gruppo{' '}
-          <strong>{invitation.group.name}</strong>.
+          <strong>{invitation.chat.name}</strong>.
         </p>
       </Modal.Body>
       <Modal.Footer>

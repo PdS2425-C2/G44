@@ -50,7 +50,7 @@ const NavHeader = ({
                         key={inv.id}
                         onClick={() => setSelectedInvite(inv)}
                       >
-                        <div className="fw-semibold">{inv.group.name}</div>
+                        <div className="fw-semibold">{inv.chat.name}</div>
                         <small className="text-muted">
                           da {inv.from.username}
                         </small>

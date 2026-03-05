@@ -32,12 +32,18 @@ const API = {
     jsonFetch(`${BASE_URL}/sessions`, { method: 'DELETE' }),
 
   getGroups: () =>
-    jsonFetch(`${BASE_URL}/groups`),
+    jsonFetch(`${BASE_URL}/chats`),
 
   createGroup: (name) =>
-    jsonFetch(`${BASE_URL}/groups`, {
+    jsonFetch(`${BASE_URL}/chats`, {
       method: 'POST',
       body: JSON.stringify({ name }),
+    }),
+  
+  createPrivateChat: (username) =>
+    jsonFetch(`${BASE_URL}/chats/private`, {
+      method: 'POST',
+      body: JSON.stringify({ username }),
     }),
 
   searchUsers: (query) => {
@@ -51,7 +57,7 @@ const API = {
     jsonFetch(`${BASE_URL}/requests`),
 
   createRequest: (groupId, username) =>
-    jsonFetch(`${BASE_URL}/groups/${groupId}/requests`, {
+    jsonFetch(`${BASE_URL}/chats/${groupId}/requests`, {
       method: 'POST',
       body: JSON.stringify({ username }),
     }),
