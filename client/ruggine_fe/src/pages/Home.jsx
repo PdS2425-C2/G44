@@ -19,8 +19,8 @@ const Home = () => {
     const [chatType, setChatType] = useState('private');
 
     return (
-        // Utilizziamo fluid, vh-100 per coprire tutta l'altezza e p-0 per rimuovere il padding
-        <Container fluid className="vh-100 p-0 overflow-hidden bg-white">
+        // Utilizziamo fluid, h-100 per coprire tutta l'altezza e p-0 per rimuovere il padding
+        <Container fluid className="h-100 p-0 overflow-hidden bg-white">
             <Row className="h-100 g-0">
                 
                 {/* --- COLONNA SINISTRA: Lista Chat --- */}
