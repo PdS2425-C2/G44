@@ -1,5 +1,5 @@
 use sqlx::SqlitePool;
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, sync::{Arc, atomic::AtomicU64}};
 use tokio::sync::RwLock;
 use axum::extract::ws::Message;
 use futures::channel::mpsc::UnboundedSender;
@@ -17,5 +17,6 @@ pub struct AppState {
     pub pool: SqlitePool,
     pub cookie_secret: Vec<u8>,
     pub session_ttl_secs: u64,
-    pub notification_peers: Arc<RwLock<HashMap<i64, Vec<UnboundedSender<Message>>>>>,
+    pub notification_peers: Arc<RwLock<HashMap<i64, HashMap<u64, UnboundedSender<Message>>>>>,
+    pub next_conn_id: Arc<AtomicU64>,
 }
