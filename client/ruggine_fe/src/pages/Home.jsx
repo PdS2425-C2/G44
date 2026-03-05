@@ -18,13 +18,15 @@ const Home = () => {
             <h2>Ciao, {user?.name} 👋</h2>
             <p>Qui trovi i tuoi gruppi di chat</p>
 
-            <Button variant="primary" onClick={() => setShowModal(true)}>
-                + Crea gruppo
-            </Button>
+            <div className="d-flex gap-3 mb-3">
+                <Button variant="primary" onClick={() => setShowModal(true)}>
+                    + Crea gruppo
+                </Button>
 
-            <Button variant="outline-primary" onClick={() => setShowChatModal(true)}>
-                + Crea Chat
-            </Button>
+                <Button variant="outline-primary" onClick={() => setShowChatModal(true)}>
+                    + Crea Chat
+                </Button>
+            </div>
 
             {groupsError && (
                 <MessageAlert variant="danger" message={groupsError} />

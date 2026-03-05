@@ -64,7 +64,7 @@ const UserSelect = ({ value, onChange }) => {
       {/* input */}
       <Form.Control
         value={query}
-        placeholder="Cerca per username"
+        placeholder="Cerca per username o per nome"
         onChange={e => setQuery(e.target.value)}
       />
 
