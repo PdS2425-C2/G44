@@ -330,7 +330,7 @@ The messages sent/received in a chat aren't described here because they are hand
         [
             {
                 "id": "int",
-                "user": {
+                "from": {
                     "id": "int",
                     "name": "string",
                     "username": "string"
@@ -398,7 +398,7 @@ The messages sent/received in a chat aren't described here because they are hand
             "type": "message.received",
             "data": {
                 "id": "int",
-                "user": {
+                "from": {
                     "id": "int",
                     "name": "string",
                     "username": "string"
