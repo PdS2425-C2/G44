@@ -13,7 +13,7 @@ const GroupsList = ({ groups }) => (
         
         {/* Avatar Placeholder: ho racchiuso le tue icone in un cerchio stile mockup */}
         <div 
-          className="d-flex justify-content-center align-items-center bg-light text-primary rounded-circle me-3 flex-shrink-0"
+          className="d-flex justify-content-center align-items-center bg-light text-dark rounded-circle me-3 flex-shrink-0"
           style={{ width: '48px', height: '48px' }}
         >
           <i className={`bi ${g.is_group ? 'bi-people-fill' : 'bi-person-fill'} fs-5`}></i>

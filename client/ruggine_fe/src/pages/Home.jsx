@@ -11,26 +11,36 @@ const Home = () => {
     const { user } = useAuth();
     const { groups, loadingGroups, groupsError, addGroup } = useGroups();
     
-    // Stati per le modali
     const [showModal, setShowModal] = useState(false);
     const [showChatModal, setShowChatModal] = useState(false);
-    
-    // Nuovo stato per gestire il toggle Private / Gruppi (di default su 'private')
     const [chatType, setChatType] = useState('private');
+    
+    // --- NUOVO STATO: Testo della barra di ricerca ---
+    const [searchQuery, setSearchQuery] = useState('');
+
+    // --- LOGICA DI FILTRAGGIO AGGIORNATA (Toggle + Ricerca) ---
+    const filteredGroups = groups.filter(g => {
+        // 1. Controlla se è del tipo giusto (Gruppo o Privata)
+        const matchesType = chatType === 'group' ? g.is_group === true : g.is_group === false;
+        
+        // 2. Controlla se il nome include il testo cercato (ignorando maiuscole/minuscole)
+        const matchesSearch = g.name.toLowerCase().includes(searchQuery.toLowerCase());
+        
+        // Mostra il gruppo solo se passa ENTRAMBI i controlli
+        return matchesType && matchesSearch;
+    });
 
     return (
-        // Utilizziamo fluid, h-100 per coprire tutta l'altezza e p-0 per rimuovere il padding
         <Container fluid className="h-100 p-0 overflow-hidden bg-white">
-            <Row className="h-100 g-0">
+            <Row className="m-0 h-100">
                 
                 {/* --- COLONNA SINISTRA: Lista Chat --- */}
-                <Col md={5} lg={3} className="d-flex flex-column border-end h-100">
+                <Col md={5} lg={4} xl={3} className="p-0 d-flex flex-column border-end h-100 bg-white">
                     
-                    {/* Header della colonna (Fisso in alto) */}
-                    <div className="p-3 pb-2">
+                    {/* Header della colonna */}
+                    <div className="p-3 pb-2 border-bottom">
                         <div className="d-flex justify-content-between align-items-center mb-3">
                             <h4 className="mb-0 fw-bold">Messaggi</h4>
-                            {/* Piccolo menu a tendina o icone per creare chat (sostituiscono i tuoi vecchi bottoni grandi) */}
                             <div className="d-flex gap-2">
                                 <Button variant="light" size="sm" className="rounded-circle" onClick={() => setShowChatModal(true)} title="Nuova Chat Privata">
                                     👤+
@@ -41,16 +51,18 @@ const Home = () => {
                             </div>
                         </div>
 
-                        {/* Barra di ricerca */}
+                        {/* --- MODIFICA QUI: Barra di ricerca collegata allo stato --- */}
                         <Form.Control 
                             type="text" 
-                            placeholder="Cerca chat..." 
+                            placeholder="Cerca chat per nome" 
                             className="mb-3 bg-light border-0"
                             style={{ borderRadius: '8px' }}
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
                         />
 
-                        {/* Toggle Switch (Private / Gruppi) simile a quello nell'immagine */}
-                        <div className="d-flex bg-light p-1 mb-2" style={{ borderRadius: '8px' }}>
+                        {/* Toggle Switch */}
+                        <div className="d-flex bg-light p-1" style={{ borderRadius: '8px' }}>
                             <Button
                                 variant="none"
                                 className={`w-50 border-0 ${chatType === 'private' ? 'bg-white shadow-sm fw-medium' : 'text-muted'}`}
@@ -71,8 +83,12 @@ const Home = () => {
                     </div>
 
                     {/* Area scrollabile della lista chat */}
-                    <div className="flex-grow-1 overflow-auto px-2 mb-3">
-                        {groupsError && <MessageAlert variant="danger" message={groupsError} />}
+                    <div className="flex-grow-1 overflow-auto p-0">
+                        {groupsError && (
+                            <div className="p-3">
+                                <MessageAlert variant="danger" message={groupsError} />
+                            </div>
+                        )}
                         
                         {loadingGroups && (
                             <div className="text-center mt-4">
@@ -80,21 +96,24 @@ const Home = () => {
                             </div>
                         )}
 
-                        {!loadingGroups && groups.length === 0 && (
-                            <div className="text-center mt-5 text-muted">
-                                <p>Nessuna conversazione trovata.</p>
+                        {/* --- MODIFICA QUI: Messaggio dinamico anche per la ricerca --- */}
+                        {!loadingGroups && filteredGroups.length === 0 && (
+                            <div className="text-center mt-5 text-muted px-3">
+                                {searchQuery 
+                                    ? "Nessun risultato per la tua ricerca." 
+                                    : (chatType === 'private' ? "Nessuna chat privata trovata." : "Nessun gruppo trovato.")
+                                }
                             </div>
                         )}
 
-                        {/* Qui applicheremo poi un filtro per passare al componente solo private o gruppi in base allo stato `chatType` */}
-                        {!loadingGroups && groups.length > 0 && (
-                            <GroupsList groups={groups} />
+                        {!loadingGroups && filteredGroups.length > 0 && (
+                            <GroupsList groups={filteredGroups} />
                         )}
                     </div>
                 </Col>
 
                 {/* --- COLONNA DESTRA: Placeholder Chat Aperta --- */}
-                <Col md={7} lg={9} className="d-none d-md-flex h-100 bg-light align-items-center justify-content-center">
+                <Col md={7} lg={8} xl={9} className="p-0 d-none d-md-flex h-100 bg-light align-items-center justify-content-center">
                     <div className="text-center text-muted">
                         <h5>Benvenuto, {user?.name}! 👋</h5>
                         <p>Seleziona una chat dalla barra laterale per iniziare.</p>
@@ -103,7 +122,6 @@ const Home = () => {
                 
             </Row>
 
-            {/* Modali (invariate) */}
             <CreateGroupModal
                 show={showModal}
                 onHide={() => setShowModal(false)}
