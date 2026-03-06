@@ -14,19 +14,14 @@ const Home = () => {
     const [showModal, setShowModal] = useState(false);
     const [showChatModal, setShowChatModal] = useState(false);
     const [chatType, setChatType] = useState('private');
-    
-    // --- NUOVO STATO: Testo della barra di ricerca ---
     const [searchQuery, setSearchQuery] = useState('');
+    
+    // --- NUOVO STATO: Gestione Hover del tasto "+" ---
+    const [isHovered, setIsHovered] = useState(false);
 
-    // --- LOGICA DI FILTRAGGIO AGGIORNATA (Toggle + Ricerca) ---
     const filteredGroups = groups.filter(g => {
-        // 1. Controlla se è del tipo giusto (Gruppo o Privata)
         const matchesType = chatType === 'group' ? g.is_group === true : g.is_group === false;
-        
-        // 2. Controlla se il nome include il testo cercato (ignorando maiuscole/minuscole)
         const matchesSearch = g.name.toLowerCase().includes(searchQuery.toLowerCase());
-        
-        // Mostra il gruppo solo se passa ENTRAMBI i controlli
         return matchesType && matchesSearch;
     });
 
@@ -41,17 +36,26 @@ const Home = () => {
                     <div className="p-3 pb-2 border-bottom">
                         <div className="d-flex justify-content-between align-items-center mb-3">
                             <h4 className="mb-0 fw-bold">Messaggi</h4>
-                            <div className="d-flex gap-2">
-                                <Button variant="light" size="sm" className="rounded-circle" onClick={() => setShowChatModal(true)} title="Nuova Chat Privata">
-                                    👤+
-                                </Button>
-                                <Button variant="light" size="sm" className="rounded-circle" onClick={() => setShowModal(true)} title="Nuovo Gruppo">
-                                    👥+
-                                </Button>
-                            </div>
+                            
+                            {/* --- MODIFICA QUI: Bottone "+" con effetto hover --- */}
+                            <Button 
+                                variant="link" 
+                                className="p-0 border-0 text-dark d-flex align-items-center justify-content-center" 
+                                onClick={() => setShowChatModal(true)} 
+                                title="Nuova Chat"
+                                onMouseEnter={() => setIsHovered(true)}
+                                onMouseLeave={() => setIsHovered(false)}
+                                style={{
+                                    transition: 'all 0.2s ease-in-out',
+                                    transform: isHovered ? 'scale(1.05)' : 'scale(1)',
+                                    opacity: isHovered ? 0.7 : 1
+                                }}
+                            >
+                                <i className="bi bi-plus-circle-fill fs-3"></i>
+                            </Button>
                         </div>
 
-                        {/* --- MODIFICA QUI: Barra di ricerca collegata allo stato --- */}
+                        {/* Barra di ricerca */}
                         <Form.Control 
                             type="text" 
                             placeholder="Cerca chat per nome" 
@@ -96,7 +100,6 @@ const Home = () => {
                             </div>
                         )}
 
-                        {/* --- MODIFICA QUI: Messaggio dinamico anche per la ricerca --- */}
                         {!loadingGroups && filteredGroups.length === 0 && (
                             <div className="text-center mt-5 text-muted px-3">
                                 {searchQuery 
@@ -130,12 +133,17 @@ const Home = () => {
                     setShowModal(false);
                 }}
             />
+
             <CreatePrivateChatModal
                 show={showChatModal}
                 onHide={() => setShowChatModal(false)}
                 onCreated={(chat) => {
                     addGroup(chat);       
                     setShowChatModal(false);
+                }}
+                onOpenGroupModal={() => {
+                    setShowChatModal(false); 
+                    setShowModal(true);      
                 }}
             />
         </Container>
