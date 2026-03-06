@@ -53,7 +53,7 @@ const CreatePrivateChatModal = ({ show, onHide, onCreated, onOpenGroupModal }) =
             disabled={loading}
           >
             <div
-              className="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-3 flex-shrink-0"
+              className="bg-dark text-white rounded-circle d-flex align-items-center justify-content-center me-3 flex-shrink-0"
               style={{ width: '48px', height: '48px' }}
             >
               <i className="bi bi-people-fill fs-5"></i>
