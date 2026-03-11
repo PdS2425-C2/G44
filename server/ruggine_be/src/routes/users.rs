@@ -40,17 +40,19 @@ pub async fn get_users(
     let limit = params.limit.unwrap_or(10);
 
     let pattern = format!("%{}%", q);
+    let pattern_name = pattern.clone();
 
     let users = sqlx::query!(
         r#"
         SELECT id, name, username
         FROM user
-        WHERE username LIKE ?
+        WHERE (username LIKE ? OR name LIKE ?)
         AND id != ?
         ORDER BY username
         LIMIT ?
         "#,
         pattern,
+        pattern_name,
         my_id,
         limit
     )

@@ -69,6 +69,7 @@ async fn main() {
         .route("/api/users", get(routes::users::get_users))
         .route("/api/chats", get(routes::chats::get_chats))
         .route("/api/chats", post(routes::chats::post_chats))
+        .route("/api/chats/private", post(routes::chats::post_private_chat))
         .route("/api/chats/:chat_id/messages", post(routes::messages::post_message))
         .route("/api/chats/:chat_id/messages", get(routes::messages::get_messages))
         .route("/api/chats/:chat_id/requests", post(routes::requests::post_chat_request))

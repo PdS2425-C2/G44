@@ -168,7 +168,8 @@ These endpoints are based on JS session management, with Axum and Tower may be v
             {
                 "id": "int",
                 "name": "string",
-                "created_at": "string"
+                "created_at": "string",
+                "is_group": true
             },
             ...
         ]
@@ -205,6 +206,34 @@ These endpoints are based on JS session management, with Axum and Tower may be v
         -   401 Unauthorized - No active session found
         -   403 Forbidden - User does not have access to create a chat
         -   500 Internal Server Error - An unexpected error occurred on the server
+
+-   **POST** `/api/chats/private`
+
+    -   Description: Create a new private 1-to-1 chat with a user (no invitations). The chat is created immediately and both users are added as members.
+
+    -   Request Body:
+        ```json
+        {
+            "username": "string"
+        }
+        ```
+
+    -   Response:
+        ```json
+        {
+            "id": "string",
+            "name": "string",
+            "created_at": "string",
+            "is_group": false
+        }
+        ```
+
+    -   Errors:
+        -   400 Bad Request - username missing / cannot create private chat with yourself
+        -   401 Unauthorized - No active session found
+        -   404 Not Found - The specified user does not exist
+        -   500 Internal Server Error - An unexpected error occurred on the server
+
 
 -   **DELETE** `/api/chats/{chat_id}/leave` [_Non mi piace come nome, se vi viene in mente qualcosa di meglio cambiatelo_]
 
@@ -392,6 +421,20 @@ The messages sent/received in a chat aren't described here because they are hand
             }
         }
         ```
+
+- **GET** `/ws/chats/{chat_id}/messages`
+    - Description: Establish a WebSocket connection to send and receive real-time messages in a chat
+    - Request parameters: None
+    - Messages:
+        -   Send Message:
+            ```json
+            {
+                "type": "message.send",
+                "data": {
+                    "content": "string"
+                }
+            }
+            ```
     -   Receive Message:
         ```json
         {

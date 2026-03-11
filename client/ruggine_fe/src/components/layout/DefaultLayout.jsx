@@ -21,7 +21,7 @@ const DefaultLayout = ({ children, hideNav = false, invitations = [] }) => {
   }, [message, clearMessage]);
 
   return (
-    <>
+    <div className="d-flex flex-column vh-100">
       {!hideNav && (
         <NavHeader
           loggedIn={loggedIn}
@@ -32,7 +32,7 @@ const DefaultLayout = ({ children, hideNav = false, invitations = [] }) => {
       )}
 
       {message && (
-        <Container className="mt-2">
+        <Container fluid className="mt-2">
           <Alert
             variant={message.type}
             dismissible
@@ -43,10 +43,10 @@ const DefaultLayout = ({ children, hideNav = false, invitations = [] }) => {
         </Container>
       )}
 
-      <Container className="mt-3">
+      <main className="flex-grow-1 overflow-hidden p-0">
         {children || <Outlet />}
-      </Container>
-    </>
+      </main>
+    </div>
   );
 };
 
