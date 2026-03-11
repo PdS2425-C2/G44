@@ -14,7 +14,8 @@ pub enum ApiError {
     Unauthorized,
     BadRequest(&'static str),
     Internal,
-    NotFound
+    NotFound,
+    Forbidden,
 }
 
 // Conversione di ApiError in risposta HTTP
@@ -25,6 +26,7 @@ impl IntoResponse for ApiError {
             ApiError::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg).into_response(),
             ApiError::Internal => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
             ApiError::NotFound => StatusCode::NOT_FOUND.into_response(),
+            ApiError::Forbidden => StatusCode::FORBIDDEN.into_response(),
         }
     }
 }

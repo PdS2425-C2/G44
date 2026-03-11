@@ -11,7 +11,7 @@ use tower_cookies::CookieManagerLayer;              // layer di tower che gestis
 use tower_http::trace::{TraceLayer, DefaultMakeSpan, DefaultOnResponse};
 use tracing::Level;
 use tracing_subscriber::{fmt, EnvFilter};
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, sync::{Arc, atomic::AtomicU64}};
 use tokio::sync::RwLock;
 
 
@@ -58,6 +58,7 @@ async fn main() {
         cookie_secret: cookie_secret.into_bytes(),
         session_ttl_secs: 60 * 60 * 24, // 24h
         notification_peers: Arc::new(RwLock::new(HashMap::new())),
+        next_conn_id: Arc::new(AtomicU64::new(0)),
     };
     
     // router axum
@@ -69,6 +70,8 @@ async fn main() {
         .route("/api/chats", get(routes::chats::get_chats))
         .route("/api/chats", post(routes::chats::post_chats))
         .route("/api/chats/private", post(routes::chats::post_private_chat))
+        .route("/api/chats/:chat_id/messages", post(routes::messages::post_message))
+        .route("/api/chats/:chat_id/messages", get(routes::messages::get_messages))
         .route("/api/chats/:chat_id/requests", post(routes::requests::post_chat_request))
         .route("/api/requests", get(routes::requests::get_requests))
         .route("/api/requests/:id", patch(routes::requests::patch_request))

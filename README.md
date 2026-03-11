@@ -88,7 +88,7 @@ These endpoints are based on JS session management, with Axum and Tower may be v
 
         ```json
         {
-            "id": "string",
+            "id": "int",
             "name": "string",
             "username": "string"
         }
@@ -106,7 +106,7 @@ These endpoints are based on JS session management, with Axum and Tower may be v
 
         ```json
         {
-            "id": "string",
+            "id": "int",
             "name": "string",
             "username": "string"
         }
@@ -140,7 +140,7 @@ These endpoints are based on JS session management, with Axum and Tower may be v
         ```json
         [
             {
-                "id": "string",
+                "id": "int",
                 "name": "string",
                 "username": "string"
             },
@@ -166,7 +166,7 @@ These endpoints are based on JS session management, with Axum and Tower may be v
         ```json
         [
             {
-                "id": "string",
+                "id": "int",
                 "name": "string",
                 "created_at": "string",
                 "is_group": true
@@ -179,7 +179,6 @@ These endpoints are based on JS session management, with Axum and Tower may be v
         -   401 Unauthorized - No active session found
         -   403 Forbidden - User does not have access to the requested resource
         -   500 Internal Server Error - An unexpected error occurred on the server
-
 
 -   **POST** `/api/chats`
 
@@ -196,7 +195,7 @@ These endpoints are based on JS session management, with Axum and Tower may be v
 
         ```json
         {
-            "id": "string",
+            "id": "int",
             "name": "string",
             "created_at": "string"
         }
@@ -259,7 +258,7 @@ These endpoints are based on JS session management, with Axum and Tower may be v
         ```json
         [
             {
-                "id": "string",
+                "id": "int",
                 "name": "string",
                 "username": "string"
             },
@@ -284,14 +283,14 @@ These endpoints are based on JS session management, with Axum and Tower may be v
         ```json
         [
             {
-                "id": "string",
+                "id": "int",
                 "from": {
-                    "id": "string",
+                    "id": "int",
                     "name": "string",
                     "username": "string"
                 },
                 "chat": {
-                    "id": "string",
+                    "id": "int",
                     "name": "string",
                     "created_at": "string"
                 },
@@ -359,9 +358,13 @@ The messages sent/received in a chat aren't described here because they are hand
         ```json
         [
             {
-                "id": "string",
-                "name": "string",   # o `user_id` ??
-                "chat_id": "string",
+                "id": "int",
+                "from": {
+                    "id": "int",
+                    "name": "string",
+                    "username": "string"
+                },
+                "chat_id": "int",
                 "content": "string",
                 "sent_at": "string",
             },
@@ -374,10 +377,28 @@ The messages sent/received in a chat aren't described here because they are hand
         -   403 Forbidden - User does not have access to the requested resource
         -   500 Internal Server Error - An unexpected error occurred on the server
 
+
+-  **POST** `/api/chats/{chat_id}/messages`
+
+    -  Description: Send a message in a chat, both private or group
+    
+    -  Request Body:
+         ```json
+        {
+            "content": "string"
+        }
+        ```
+
+    -   Errors:
+        -   401 Unauthorized - No active session found
+        -   403 Forbidden - User does not have access to the requested resource
+        -   500 Internal Server Error - An unexpected error occurred on the server
+
+  
 # WebSocket API
 
 - **GET** `/ws/notifications`
-  - Description: Establish a WebSocket connection to receive real-time notifications for invitation requests.
+  - Description: Establish a WebSocket connection to receive real-time notifications.
   - Request parameters: None
   - Messages:
     -   Invitation Request Notification:
@@ -414,21 +435,20 @@ The messages sent/received in a chat aren't described here because they are hand
                 }
             }
             ```
-        -   Receive Message:
-            ```json
-            {
-                "type": "message.received",
-                "data": {
+    -   Receive Message:
+        ```json
+        {
+            "type": "message.received",
+            "data": {
+                "id": "int",
+                "from": {
                     "id": "int",
-                    "user": {
-                        "id": "int",
-                        "name": "string",
-                        "username": "string"
-                    },
-                    "chat_id": "int",
-                    "content": "string",
-                    "sent_at": "string"
-                }
+                    "name": "string",
+                    "username": "string"
+                },
+                "chat_id": "int",
+                "content": "string",
+                "sent_at": "string"
             }
-            ```
-            
+        }
+        ```

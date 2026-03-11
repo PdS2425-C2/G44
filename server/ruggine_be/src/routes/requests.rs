@@ -163,7 +163,7 @@ pub async fn post_chat_request(
     {
         let peers = st.notification_peers.read().await;
         if let Some(senders) = peers.get(&invitee.id.unwrap()) {
-            for tx in senders {
+            for tx in senders.values() {
                 // se uno fallisce, continui sugli altri
                 let _ = tx.unbounded_send(msg.clone());
             }

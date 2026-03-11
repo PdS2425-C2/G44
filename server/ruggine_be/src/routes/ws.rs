@@ -1,13 +1,15 @@
+use std::{collections::HashMap, sync::atomic::Ordering};
+
 use axum::{
     extract::{
-        ws::{Message, WebSocket, WebSocketUpgrade},
         State,
+        ws::{Message, WebSocket, WebSocketUpgrade},
     },
     response::IntoResponse,
 };
-use tower_cookies::Cookies;
-use futures::{StreamExt, SinkExt};
 use futures::channel::mpsc;
+use futures::{SinkExt, StreamExt};
+use tower_cookies::Cookies;
 
 use crate::{auth, state::AppState};
 
@@ -16,8 +18,7 @@ pub async fn ws_notifications(
     State(state): State<AppState>,
     cookies: Cookies,
 ) -> impl IntoResponse {
-    
-    let sid: String = match cookies.get("sid" ) {
+    let sid: String = match cookies.get("sid") {
         Some(c) => c.value().to_string(),
         None => return ws.on_upgrade(|socket| async move { drop(socket) }),
     };
@@ -28,11 +29,17 @@ pub async fn ws_notifications(
     };
 
     let user_id = payload.uid;
+    let conn_id = state.next_conn_id.fetch_add(1, Ordering::Relaxed);
 
-    ws.on_upgrade(move |socket| handle_notifications_socket(socket, state, user_id))
+    ws.on_upgrade(move |socket| handle_notifications_socket(socket, state, user_id, conn_id))
 }
 
-async fn handle_notifications_socket(socket: WebSocket, state: AppState, user_id: i64) {
+async fn handle_notifications_socket(
+    socket: WebSocket,
+    state: AppState,
+    user_id: i64,
+    conn_id: u64,
+) {
     let (mut ws_sender, mut ws_receiver) = socket.split();
 
     // canale interno (tx per chi invia notifiche, rx collegato al websocket)
@@ -41,9 +48,12 @@ async fn handle_notifications_socket(socket: WebSocket, state: AppState, user_id
     // registra il sender nel registry
     {
         let mut peers = state.notification_peers.write().await;
-        peers.entry(user_id).or_insert_with(Vec::new).push(tx.clone());
+        peers
+            .entry(user_id)
+            .or_insert_with(HashMap::new)
+            .insert(conn_id, tx);
     }
-    
+
     // Task 1: inoltra i messaggi dal canale interno al WebSocket
     let forward_to_ws = tokio::spawn(async move {
         while let Some(msg) = rx.next().await {
@@ -61,14 +71,14 @@ async fn handle_notifications_socket(socket: WebSocket, state: AppState, user_id
     }
     forward_to_ws.abort();
 
-    // ToDo: rimuovi il sender dal registry alla chiusura
-    // {
-    //     let mut peers = state.notification_peers.write().await;
-    //     if let Some(list) = peers.get_mut(&user_id) {
-    //         list.retain(|s| s.&tx);
-    //         if list.is_empty() {
-    //             peers.remove(&user_id);
-    //         }
-    //     }
-    // }
+    // Task 3: rimuovi il sender dal registry
+    {
+        let mut peers = state.notification_peers.write().await;
+        if let Some(conns) = peers.get_mut(&user_id) {
+            conns.remove(&conn_id);
+            if conns.is_empty() {
+                peers.remove(&user_id);
+            }
+        }
+    }
 }
