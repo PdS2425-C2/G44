@@ -43,10 +43,10 @@ export const NotificationsProvider = ({ children }) => {
               name: msg.data.from.name,
               username: msg.data.from.username,
             },
-            group: {
-              id: msg.data.group.id,
-              name: msg.data.group.name,
-              created_at: msg.data.group.created_at,
+            chat: {
+              id: msg.data.chat.id,
+              name: msg.data.chat.name,
+              created_at: msg.data.chat.created_at,
             },
           };
           setInvitations((prev) => [invite, ...prev]);
