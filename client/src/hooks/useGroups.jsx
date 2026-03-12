@@ -38,27 +38,24 @@ export const useGroupsState = () => {
     return () => { cancelled = true; };
   }, [loggedIn]);  
 
-  useEffect(() => {
-    if (!incomingMessage) return;
-
+  const moveGroupToTop = (chatId) => {
     setGroups((prevGroups) => {
-      const targetChatId = incomingMessage.chat_id;
-      
-      const chatIndex = prevGroups.findIndex(g => g.id === targetChatId);
-
-      // Se la chat è presente nella lista, la spostiamo in cima
+      const chatIndex = prevGroups.findIndex(g => g.id === chatId);
       if (chatIndex > -1) {
         const newGroups = [...prevGroups];
         const [chatToMove] = newGroups.splice(chatIndex, 1);
-        
         return [chatToMove, ...newGroups];
       }
-
       return prevGroups;
     });
+  };
+
+  useEffect(() => {
+    if (!incomingMessage) return;
+    moveGroupToTop(incomingMessage.chat_id);
   }, [incomingMessage]);
 
   const addGroup = (group) => setGroups((prev) => [group, ...prev]);
 
-  return { groups, loadingGroups, groupsError, addGroup };
+  return { groups, loadingGroups, groupsError, addGroup, moveGroupToTop };
 };

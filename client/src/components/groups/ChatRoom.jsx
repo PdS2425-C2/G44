@@ -3,11 +3,13 @@ import { Form, Button, Spinner, Alert } from 'react-bootstrap';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotifications } from '../../hooks/NotificationsProvider';
 import API from '../../api/client';
+import { useGroups } from '../../hooks/GroupsProvider';
 
 const ChatRoom = ({ chat }) => {
     const { user } = useAuth();
     
     const { incomingMessage } = useNotifications();
+    const { moveGroupToTop } = useGroups();
     
     const [messages, setMessages] = useState([]);
     const [newMessage, setNewMessage] = useState('');
@@ -75,7 +77,11 @@ const ChatRoom = ({ chat }) => {
             sent_at: new Date().toISOString()
         };
 
+        // Aggiungiamo il messaggio finto alla UI
         setMessages((prev) => [...prev, tempMessage]);
+        
+        // ECCO LA MAGIA: Facciamo saltare la chat in cima anche per noi che inviamo!
+        moveGroupToTop(chat.id);
 
         try {
             await API.sendMessage(chat.id, messageText);
