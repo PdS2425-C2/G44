@@ -2,9 +2,12 @@
 import { useEffect, useState } from 'react';
 import API from '../api/client';
 import { useAuth } from './useAuth'; 
+import { useNotifications } from './NotificationsProvider'; 
 
 export const useGroupsState = () => {
   const { loggedIn } = useAuth();
+  const { incomingMessage } = useNotifications(); 
+  
   const [groups, setGroups] = useState([]);
   const [loadingGroups, setLoadingGroups] = useState(true);
   const [groupsError, setGroupsError] = useState(null);
@@ -34,6 +37,26 @@ export const useGroupsState = () => {
     loadGroups();
     return () => { cancelled = true; };
   }, [loggedIn]);  
+
+  useEffect(() => {
+    if (!incomingMessage) return;
+
+    setGroups((prevGroups) => {
+      const targetChatId = incomingMessage.chat_id;
+      
+      const chatIndex = prevGroups.findIndex(g => g.id === targetChatId);
+
+      // Se la chat è presente nella lista, la spostiamo in cima
+      if (chatIndex > -1) {
+        const newGroups = [...prevGroups];
+        const [chatToMove] = newGroups.splice(chatIndex, 1);
+        
+        return [chatToMove, ...newGroups];
+      }
+
+      return prevGroups;
+    });
+  }, [incomingMessage]);
 
   const addGroup = (group) => setGroups((prev) => [group, ...prev]);
 
