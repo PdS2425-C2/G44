@@ -15,6 +15,11 @@ const jsonFetch = async (url, options = {}) => {
   // Se la risposta è vuota (204), evita JSON.parse
   if (res.status === 204) return null;
 
+  // A volte le API restituiscono 201 Created senza body per le POST
+  if (res.status === 201 && !res.headers.get('content-type')?.includes('application/json')) {
+      return null;
+  }
+
   return res.json();
 };
 
@@ -66,6 +71,15 @@ const API = {
     jsonFetch(`${BASE_URL}/requests/${id}`, {
       method: 'PATCH',
       body: JSON.stringify({ status }),
+    }),
+
+  getMessages: (chatId) =>
+    jsonFetch(`${BASE_URL}/chats/${chatId}/messages`),
+
+  sendMessage: (chatId, content) =>
+    jsonFetch(`${BASE_URL}/chats/${chatId}/messages`, {
+      method: 'POST',
+      body: JSON.stringify({ content }),
     }),
 };
 

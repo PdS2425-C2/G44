@@ -6,6 +6,7 @@ import CreateGroupModal from '../components/groups/CreateGroupModal';
 import GroupsList from '../components/groups/GroupsList';
 import MessageAlert from '../components/feedback/MessageAlert';
 import CreatePrivateChatModal from '../components/groups/CreatePrivateChatModal';
+import ChatRoom from '../components/groups/ChatRoom'; 
 
 const Home = () => {
     const { user } = useAuth();
@@ -15,9 +16,8 @@ const Home = () => {
     const [showChatModal, setShowChatModal] = useState(false);
     const [chatType, setChatType] = useState('private');
     const [searchQuery, setSearchQuery] = useState('');
-    
-    // --- NUOVO STATO: Gestione Hover del tasto "+" ---
     const [isHovered, setIsHovered] = useState(false);
+    const [selectedChat, setSelectedChat] = useState(null);
 
     const filteredGroups = groups.filter(g => {
         const matchesType = chatType === 'group' ? g.is_group === true : g.is_group === false;
@@ -31,13 +31,10 @@ const Home = () => {
                 
                 {/* --- COLONNA SINISTRA: Lista Chat --- */}
                 <Col md={5} lg={4} xl={3} className="p-0 d-flex flex-column border-end h-100 bg-white">
-                    
-                    {/* Header della colonna */}
                     <div className="p-3 pb-2 border-bottom">
                         <div className="d-flex justify-content-between align-items-center mb-3">
                             <h4 className="mb-0 fw-bold">Messaggi</h4>
                             
-                            {/* --- MODIFICA QUI: Bottone "+" con effetto hover --- */}
                             <Button 
                                 variant="link" 
                                 className="p-0 border-0 text-dark d-flex align-items-center justify-content-center" 
@@ -47,7 +44,7 @@ const Home = () => {
                                 onMouseLeave={() => setIsHovered(false)}
                                 style={{
                                     transition: 'all 0.2s ease-in-out',
-                                    transform: isHovered ? 'scale(1.05)' : 'scale(1)',
+                                    transform: isHovered ? 'scale(1.15)' : 'scale(1)',
                                     opacity: isHovered ? 0.7 : 1
                                 }}
                             >
@@ -55,7 +52,6 @@ const Home = () => {
                             </Button>
                         </div>
 
-                        {/* Barra di ricerca */}
                         <Form.Control 
                             type="text" 
                             placeholder="Cerca chat per nome" 
@@ -65,7 +61,6 @@ const Home = () => {
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />
 
-                        {/* Toggle Switch */}
                         <div className="d-flex bg-light p-1" style={{ borderRadius: '8px' }}>
                             <Button
                                 variant="none"
@@ -86,7 +81,6 @@ const Home = () => {
                         </div>
                     </div>
 
-                    {/* Area scrollabile della lista chat */}
                     <div className="flex-grow-1 overflow-auto p-0">
                         {groupsError && (
                             <div className="p-3">
@@ -110,17 +104,25 @@ const Home = () => {
                         )}
 
                         {!loadingGroups && filteredGroups.length > 0 && (
-                            <GroupsList groups={filteredGroups} />
+                            <GroupsList 
+                                groups={filteredGroups} 
+                                onSelectGroup={(chat) => setSelectedChat(chat)} 
+                            />
                         )}
                     </div>
                 </Col>
 
-                {/* --- COLONNA DESTRA: Placeholder Chat Aperta --- */}
+                {/* --- COLONNA DESTRA: Chat Room o Placeholder --- */}
                 <Col md={7} lg={8} xl={9} className="p-0 d-none d-md-flex h-100 bg-light align-items-center justify-content-center">
-                    <div className="text-center text-muted">
-                        <h5>Benvenuto, {user?.name}! 👋</h5>
-                        <p>Seleziona una chat dalla barra laterale per iniziare.</p>
-                    </div>
+                    {/* 4. RENDER CONDIZIONALE */}
+                    {selectedChat ? (
+                        <ChatRoom chat={selectedChat} />
+                    ) : (
+                        <div className="text-center text-muted">
+                            <h5>Benvenuto, {user?.name}! 👋</h5>
+                            <p>Seleziona una chat dalla barra laterale per iniziare.</p>
+                        </div>
+                    )}
                 </Col>
                 
             </Row>

@@ -6,8 +6,13 @@ const NotificationsContext = createContext(null);
 
 export const NotificationsProvider = ({ children }) => {
   const { loggedIn } = useAuth();
+  
+  // Stati per gli inviti
   const [invitations, setInvitations] = useState([]);
   const [selectedInvite, setSelectedInvite] = useState(null);
+
+  // --- NUOVO STATO: L'ultimo messaggio di chat ricevuto ---
+  const [incomingMessage, setIncomingMessage] = useState(null);
 
   // fetch richieste / inviti all'accesso
   useEffect(() => {
@@ -22,11 +27,12 @@ export const NotificationsProvider = ({ children }) => {
       .catch(() => setInvitations([]));
   }, [loggedIn]);
 
-  // websocket notifiche inviti
+  // websocket notifiche e messaggi
   useEffect(() => {
     if (!loggedIn) return;
 
-    const socket = new WebSocket('/ws/notifications');
+    // Nota: in produzione potresti voler usare l'URL completo (ws://...) o farti restituire l'host dinamicamente
+    const socket = new WebSocket('ws://localhost:3000/ws/notifications'); // <-- Assicurati che l'URL sia corretto per il tuo ambiente
 
     socket.onopen = () => console.log('WS notifications connected');
 
@@ -34,6 +40,8 @@ export const NotificationsProvider = ({ children }) => {
       try {
         const msg = JSON.parse(event.data);
         console.log('WS message received', msg);
+        
+        // 1. GESTIONE INVITI AI GRUPPI
         if (msg.type === 'invitation.created') {
           const invite = {
             id: msg.data.request_id,
@@ -50,6 +58,12 @@ export const NotificationsProvider = ({ children }) => {
             },
           };
           setInvitations((prev) => [invite, ...prev]);
+        } 
+        // 2. --- NUOVA GESTIONE: MESSAGGI CHAT RICEVUTI ---
+        else if (msg.type === 'message.received') {
+            // Salviamo il messaggio nello stato. 
+            // La ChatRoom sarà in ascolto di questo stato.
+            setIncomingMessage(msg.data);
         }
       } catch (e) {
         console.error('Error parsing WS message', e);
@@ -72,6 +86,8 @@ export const NotificationsProvider = ({ children }) => {
         selectedInvite,
         setSelectedInvite,
         removeInvitation,
+        // --- ESPONIAMO IL NUOVO STATO ---
+        incomingMessage,
       }}
     >
       {children}
