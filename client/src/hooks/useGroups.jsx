@@ -13,6 +13,7 @@ export const useGroupsState = () => {
   const [groupsError, setGroupsError] = useState(null);
 
   useEffect(() => {
+    // ... (la logica di loadGroups rimane identica a prima)
     if (!loggedIn) {  
       setGroups([]);
       setLoadingGroups(false);
@@ -38,24 +39,37 @@ export const useGroupsState = () => {
     return () => { cancelled = true; };
   }, [loggedIn]);  
 
-  const moveGroupToTop = (chatId) => {
+  // --- NUOVA FUNZIONE: Sposta in cima e aggiorna il testo ---
+  const updateGroupActivity = (chatId, message) => {
     setGroups((prevGroups) => {
       const chatIndex = prevGroups.findIndex(g => g.id === chatId);
       if (chatIndex > -1) {
         const newGroups = [...prevGroups];
-        const [chatToMove] = newGroups.splice(chatIndex, 1);
-        return [chatToMove, ...newGroups];
+        const chatToUpdate = { ...newGroups[chatIndex] }; // cloniamo per non mutare lo stato originario
+        
+        // AGGIORNIAMO L'ULTIMO MESSAGGIO
+        chatToUpdate.last_message = {
+            content: message.content,
+            sent_at: message.sent_at,
+            sender_name: message.from?.name || message.from?.username || ''
+        };
+
+        // Rimuoviamo la vecchia posizione e lo mettiamo in cima
+        newGroups.splice(chatIndex, 1);
+        return [chatToUpdate, ...newGroups];
       }
       return prevGroups;
     });
   };
 
+  // Quando arriva un messaggio via WebSocket aggiorniamo subito!
   useEffect(() => {
     if (!incomingMessage) return;
-    moveGroupToTop(incomingMessage.chat_id);
+    updateGroupActivity(incomingMessage.chat_id, incomingMessage);
   }, [incomingMessage]);
 
   const addGroup = (group) => setGroups((prev) => [group, ...prev]);
 
-  return { groups, loadingGroups, groupsError, addGroup, moveGroupToTop };
+  // Esportiamo la nuova funzione
+  return { groups, loadingGroups, groupsError, addGroup, updateGroupActivity };
 };

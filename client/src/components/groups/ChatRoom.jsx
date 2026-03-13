@@ -9,7 +9,7 @@ const ChatRoom = ({ chat }) => {
     const { user } = useAuth();
     
     const { incomingMessage } = useNotifications();
-    const { moveGroupToTop } = useGroups();
+    const { updateGroupActivity } = useGroups();
     
     const [messages, setMessages] = useState([]);
     const [newMessage, setNewMessage] = useState('');
@@ -80,8 +80,7 @@ const ChatRoom = ({ chat }) => {
         // Aggiungiamo il messaggio finto alla UI
         setMessages((prev) => [...prev, tempMessage]);
         
-        // ECCO LA MAGIA: Facciamo saltare la chat in cima anche per noi che inviamo!
-        moveGroupToTop(chat.id);
+        updateGroupActivity(chat.id, tempMessage);
 
         try {
             await API.sendMessage(chat.id, messageText);

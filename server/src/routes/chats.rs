@@ -12,12 +12,23 @@ use crate::{
 };
 
 // --------- DTOs ---------
+
+// 1. Nuovo DTO per l'ultimo messaggio
+#[derive(Debug, Serialize)]
+pub struct LastMessageDto {
+    pub content: String,
+    pub sent_at: String,
+    pub sender_name: String,
+}
+
+// 2. Aggiunto il campo last_message a ChatDto
 #[derive(Debug, Serialize)]
 pub struct ChatDto {
     pub id: i64,
     pub name: Option<String>,
     pub created_at: String,
     pub is_group: bool,
+    pub last_message: Option<LastMessageDto>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -42,7 +53,6 @@ pub async fn get_chats(
     cookies: Cookies,
     Query(params): Query<ChatsQuery>,
 ) -> Result<Json<Vec<ChatDto>>, ApiError> {
-    // --- 1) Recupero cookie di sessione ---
     let sid_cookie = cookies
         .get("sid")
         .ok_or(ApiError::Unauthorized)?;
@@ -52,33 +62,47 @@ pub async fn get_chats(
 
     let user_id = payload.uid;
 
-    // --- 2) Parametri opzionali ---
     let limit = params.limit.unwrap_or(100);
     let offset = params.offset.unwrap_or(0);
 
-    // --- 3) Query SQL ---
     let rows = sqlx::query!(
         r#"
         SELECT
-        c.id AS "id!: i64",
-        (
-            CASE
-            WHEN c.is_group = 1 THEN COALESCE(c.name, '')
-            ELSE COALESCE(u_other.name, u_other.username, '')
-            END
-        ) AS "name!: String",
-        c.created_at AS created_at,
-        c.is_group AS "is_group!: bool"
+            c.id AS "id!: i64",
+            (
+                CASE
+                WHEN c.is_group = 1 THEN COALESCE(c.name, '')
+                ELSE COALESCE(u_other.name, u_other.username, '')
+                END
+            ) AS "name!: String",
+            c.created_at AS created_at,
+            c.is_group AS "is_group!: bool",
+            lm.content AS "last_message_content?: String",
+            lm.sent_at AS "last_message_sent_at?: String",
+            lm.sender_name AS "last_message_sender_name?: String"
         FROM chat c
         JOIN association a_me
-        ON a_me.chat_id = c.id
-        AND a_me.user_id = ?
+            ON a_me.chat_id = c.id
+            AND a_me.user_id = ?
         LEFT JOIN association a_other
-        ON a_other.chat_id = c.id
-        AND a_other.user_id != ?
+            ON a_other.chat_id = c.id
+            AND a_other.user_id != ?
         LEFT JOIN user u_other
-        ON u_other.id = a_other.user_id
-        ORDER BY c.created_at DESC
+            ON u_other.id = a_other.user_id
+        LEFT JOIN (
+            -- Subquery corretta per estrarre l'ultimo messaggio per chat
+            SELECT m1.chat_id, m1.content, m1.sent_at, COALESCE(u.name, u.username, '') AS sender_name
+            FROM message m1
+            JOIN user u ON u.id = m1.user_id
+            WHERE m1.id = (
+                SELECT m2.id 
+                FROM message m2 
+                WHERE m2.chat_id = m1.chat_id 
+                ORDER BY m2.sent_at DESC 
+                LIMIT 1
+            )
+        ) lm ON lm.chat_id = c.id
+        ORDER BY COALESCE(lm.sent_at, c.created_at) DESC
         LIMIT ? OFFSET ?
         "#,
         user_id,
@@ -88,20 +112,27 @@ pub async fn get_chats(
     )
     .fetch_all(&st.pool)
     .await?;
-    // --- 4) Conversione in DTO ---
+
     let chats = rows
         .into_iter()
-        .map(|r| ChatDto {
-            id: r.id,
-            name: if r.name.is_empty() { None } else { Some(r.name) },
-            created_at: r.created_at,
-            is_group: r.is_group,
+        .map(|r| {
+            let last_message = match (r.last_message_content, r.last_message_sent_at, r.last_message_sender_name) {
+                (Some(content), Some(sent_at), Some(sender_name)) => Some(LastMessageDto { content, sent_at, sender_name }),
+                _ => None,
+            };
+
+            ChatDto {
+                id: r.id,
+                name: if r.name.is_empty() { None } else { Some(r.name) },
+                created_at: r.created_at,
+                is_group: r.is_group,
+                last_message,
+            }
         })
         .collect();
 
     Ok(Json(chats))
 }
-
 // POST /api/chats
 // Creates a new chat and invites the specified users
 pub async fn post_chats(
@@ -150,6 +181,7 @@ pub async fn post_chats(
         name: chat.name,
         created_at: chat.created_at,
         is_group: chat.is_group,
+        last_message: None, // Una chat appena creata non ha messaggi
     }))
 }
 
@@ -251,6 +283,7 @@ pub async fn post_private_chat(
         id: chat.id,
         name: Some(other_display_name),
         created_at: chat.created_at,
-        is_group: chat.is_group, 
+        is_group: chat.is_group,
+        last_message: None, // Una chat appena creata non ha messaggi
     }))
 }
