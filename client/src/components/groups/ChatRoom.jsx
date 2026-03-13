@@ -5,6 +5,22 @@ import { useNotifications } from '../../hooks/NotificationsProvider';
 import API from '../../api/client';
 import { useGroups } from '../../hooks/GroupsProvider';
 
+// --- FUNZIONE HELPER PER I SEPARATORI DI DATA ---
+const formatSeparatorDate = (dateString) => {
+    const date = new Date(dateString);
+    const today = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    if (date.toDateString() === today.toDateString()) {
+        return 'Oggi';
+    } else if (date.toDateString() === yesterday.toDateString()) {
+        return 'Ieri';
+    } else {
+        return date.toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' });
+    }
+};
+
 const ChatRoom = ({ chat }) => {
     const { user } = useAuth();
     
@@ -77,9 +93,9 @@ const ChatRoom = ({ chat }) => {
             sent_at: new Date().toISOString()
         };
 
-        // Aggiungiamo il messaggio finto alla UI
         setMessages((prev) => [...prev, tempMessage]);
         
+        // Aggiorniamo la lista a sinistra istantaneamente
         updateGroupActivity(chat.id, tempMessage);
 
         try {
@@ -127,30 +143,49 @@ const ChatRoom = ({ chat }) => {
                     </div>
                 ) : (
                     <>
-                        {messages.map((msg) => {
+                        {messages.map((msg, index) => {
                             const isMine = msg.from.id === user?.id;
+                            
+                            // --- LOGICA DEL SEPARATORE DI DATA ---
+                            const currentMessageDate = new Date(msg.sent_at).toDateString();
+                            const previousMessageDate = index > 0 ? new Date(messages[index - 1].sent_at).toDateString() : null;
+                            const showSeparator = currentMessageDate !== previousMessageDate;
 
                             return (
-                                <div key={msg.id} className={`d-flex mb-3 ${isMine ? 'justify-content-end' : 'justify-content-start'}`}>
-                                    <div 
-                                        className={`p-3 rounded-4 shadow-sm ${isMine ? 'bg-primary text-white' : 'bg-white text-dark'}`}
-                                        style={{ 
-                                            maxWidth: '70%', 
-                                            borderBottomRightRadius: isMine ? '4px' : '1rem',
-                                            borderBottomLeftRadius: !isMine ? '4px' : '1rem'
-                                        }}
-                                    >
-                                        {!isMine && chat.is_group && (
-                                            <div className="small fw-bold mb-1" style={{ color: '#0d6efd' }}>
-                                                {msg.from.name || msg.from.username}
+                                <React.Fragment key={msg.id}>
+                                    
+                                    {/* DIVISORE DATA */}
+                                    {showSeparator && (
+                                        <div className="d-flex justify-content-center my-3">
+                                            <span className="badge bg-secondary bg-opacity-25 text-dark rounded-pill px-3 py-1 fw-normal" style={{ fontSize: '0.8rem' }}>
+                                                {formatSeparatorDate(msg.sent_at)}
+                                            </span>
+                                        </div>
+                                    )}
+
+                                    {/* FUMETTO MESSAGGIO */}
+                                    <div className={`d-flex mb-3 ${isMine ? 'justify-content-end' : 'justify-content-start'}`}>
+                                        <div 
+                                            className={`p-3 rounded-4 shadow-sm ${isMine ? 'bg-primary text-white' : 'bg-white text-dark'}`}
+                                            style={{ 
+                                                maxWidth: '70%', 
+                                                borderBottomRightRadius: isMine ? '4px' : '1rem',
+                                                borderBottomLeftRadius: !isMine ? '4px' : '1rem'
+                                            }}
+                                        >
+                                            {!isMine && chat.is_group && (
+                                                <div className="small fw-bold mb-1" style={{ color: '#0d6efd' }}>
+                                                    {msg.from.name || msg.from.username}
+                                                </div>
+                                            )}
+                                            <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{msg.content}</div>
+                                            <div className={`small mt-1 text-end ${isMine ? 'text-white-50' : 'text-muted'}`} style={{ fontSize: '0.75rem' }}>
+                                                {new Date(msg.sent_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                             </div>
-                                        )}
-                                        <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{msg.content}</div>
-                                        <div className={`small mt-1 text-end ${isMine ? 'text-white-50' : 'text-muted'}`} style={{ fontSize: '0.75rem' }}>
-                                            {new Date(msg.sent_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                         </div>
                                     </div>
-                                </div>
+
+                                </React.Fragment>
                             );
                         })}
                         <div ref={messagesEndRef} />
