@@ -13,7 +13,6 @@ use crate::{
 
 // --------- DTOs ---------
 
-// Nuovo DTO per l'ultimo messaggio
 #[derive(Debug, Serialize)]
 pub struct LastMessageDto {
     pub content: String,
@@ -21,7 +20,6 @@ pub struct LastMessageDto {
     pub sender_name: String,
 }
 
-// Aggiunto il campo last_message a ChatDto
 #[derive(Debug, Serialize)]
 pub struct ChatDto {
     pub id: i64,
@@ -29,9 +27,9 @@ pub struct ChatDto {
     pub created_at: String,
     pub is_group: bool,
     pub last_message: Option<LastMessageDto>,
+    pub unread_count: i64, // <-- NUOVO CAMPO PER IL BADGE
 }
 
-// Nuovo DTO per i partecipanti della chat
 #[derive(Debug, Serialize)]
 pub struct ParticipantDto {
     pub id: i64,
@@ -56,19 +54,14 @@ pub struct CreatePrivateChatReq {
 }
 
 // GET /api/chats
-// Returns all chats the user belongs to
+// Returns all chats the user belongs to (ORA CON IL CONTEGGIO MESSAGGI NON LETTI)
 pub async fn get_chats(
     State(st): State<AppState>,
     cookies: Cookies,
     Query(params): Query<ChatsQuery>,
 ) -> Result<Json<Vec<ChatDto>>, ApiError> {
-    let sid_cookie = cookies
-        .get("sid")
-        .ok_or(ApiError::Unauthorized)?;
-
-    let payload = verify_cookie_value(sid_cookie.value(), &st.cookie_secret)
-        .ok_or(ApiError::Unauthorized)?;
-
+    let sid_cookie = cookies.get("sid").ok_or(ApiError::Unauthorized)?;
+    let payload = verify_cookie_value(sid_cookie.value(), &st.cookie_secret).ok_or(ApiError::Unauthorized)?;
     let user_id = payload.uid;
 
     let limit = params.limit.unwrap_or(100);
@@ -88,7 +81,14 @@ pub async fn get_chats(
             c.is_group AS "is_group!: bool",
             lm.content AS "last_message_content?: String",
             lm.sent_at AS "last_message_sent_at?: String",
-            lm.sender_name AS "last_message_sender_name?: String"
+            lm.sender_name AS "last_message_sender_name?: String",
+            (
+                -- ECCO LA MAGIA: Conta i messaggi inviati DOPO l'ultima lettura (o dopo l'ingresso se mai letta)
+                SELECT COUNT(m.id)
+                FROM message m
+                WHERE m.chat_id = c.id
+                AND m.sent_at > COALESCE(a_me.last_read_at, a_me.join_at)
+            ) AS "unread_count!: i64"
         FROM chat c
         JOIN association a_me
             ON a_me.chat_id = c.id
@@ -99,7 +99,6 @@ pub async fn get_chats(
         LEFT JOIN user u_other
             ON u_other.id = a_other.user_id
         LEFT JOIN (
-            -- Subquery corretta per estrarre l'ultimo messaggio per chat
             SELECT m1.chat_id, m1.content, m1.sent_at, COALESCE(u.name, u.username, '') AS sender_name
             FROM message m1
             JOIN user u ON u.id = m1.user_id
@@ -136,6 +135,7 @@ pub async fn get_chats(
                 created_at: r.created_at,
                 is_group: r.is_group,
                 last_message,
+                unread_count: r.unread_count, // <-- Mappiamo il nuovo campo
             }
         })
         .collect();
@@ -144,45 +144,29 @@ pub async fn get_chats(
 }
 
 // POST /api/chats
-// Creates a new chat and invites the specified users
 pub async fn post_chats(
     State(st): State<AppState>,
     cookies: Cookies,
     Json(req): Json<CreateChatReq>,
 ) -> Result<Json<ChatDto>, ApiError> {
+    if req.name.trim().is_empty() { return Err(ApiError::BadRequest("chat name missing")); }
 
-    if req.name.trim().is_empty() {
-        return Err(ApiError::BadRequest("chat name missing"));
-    }
-
-    // --- auth ---
     let sid = cookies.get("sid").ok_or(ApiError::Unauthorized)?;
-    let payload =
-        verify_cookie_value(sid.value(), &st.cookie_secret)
-            .ok_or(ApiError::Unauthorized)?;
+    let payload = verify_cookie_value(sid.value(), &st.cookie_secret).ok_or(ApiError::Unauthorized)?;
     let user_id = payload.uid;
 
     let mut tx = st.pool.begin().await?;
 
-    // create chat
     let chat = sqlx::query!(
-        r#"INSERT INTO chat(name, created_at, is_group)
-           VALUES (?, datetime('now'), 1)
-           RETURNING id, name, created_at, is_group"#,
+        r#"INSERT INTO chat(name, created_at, is_group) VALUES (?, datetime('now'), 1) RETURNING id, name, created_at, is_group"#,
         req.name
-    )
-    .fetch_one(&mut *tx)
-    .await?;
+    ).fetch_one(&mut *tx).await?;
 
-    // chat creator association
+    // Per chi crea la chat, l'ultima lettura coincide con la creazione
     sqlx::query!(
-        r#"INSERT INTO association(user_id, chat_id, join_at)
-           VALUES (?, ?, datetime('now'))"#,
-        user_id,
-        chat.id
-    )
-    .execute(&mut *tx)
-    .await?;
+        r#"INSERT INTO association(user_id, chat_id, join_at, last_read_at) VALUES (?, ?, datetime('now'), datetime('now'))"#,
+        user_id, chat.id
+    ).execute(&mut *tx).await?;
 
     tx.commit().await?;
 
@@ -191,163 +175,106 @@ pub async fn post_chats(
         name: chat.name,
         created_at: chat.created_at,
         is_group: chat.is_group,
-        last_message: None, // Una chat appena creata non ha messaggi
+        last_message: None,
+        unread_count: 0,
     }))
 }
 
 // POST /api/chats/private
-// Creates a new private chat between the authenticated user and the specified username
 pub async fn post_private_chat(
     State(st): State<AppState>,
     cookies: Cookies,
     Json(req): Json<CreatePrivateChatReq>,
 ) -> Result<Json<ChatDto>, ApiError> {
-    if req.username.trim().is_empty() {
-        return Err(ApiError::BadRequest("username missing"));
-    }
+    if req.username.trim().is_empty() { return Err(ApiError::BadRequest("username missing")); }
 
-    // auth
     let sid = cookies.get("sid").ok_or(ApiError::Unauthorized)?;
-    let payload = verify_cookie_value(sid.value(), &st.cookie_secret)
-        .ok_or(ApiError::Unauthorized)?;
+    let payload = verify_cookie_value(sid.value(), &st.cookie_secret).ok_or(ApiError::Unauthorized)?;
     let user_id = payload.uid;
 
     let mut tx = st.pool.begin().await?;
 
-    // trova l'altro utente
-    let other = sqlx::query!(
-        r#"SELECT id, name, username FROM user WHERE username = ?"#,
-        req.username
-    )
-    .fetch_optional(&mut *tx)
-    .await?
-    .ok_or(ApiError::NotFound)?;
-
+    let other = sqlx::query!("SELECT id, name, username FROM user WHERE username = ?", req.username)
+        .fetch_optional(&mut *tx).await?.ok_or(ApiError::NotFound)?;
     let other_id = other.id.ok_or(ApiError::Internal)?;
 
-    // evita chat con se stessi
-    if other_id == user_id {
-        return Err(ApiError::BadRequest("cannot create private chat with yourself"));
-    }
+    if other_id == user_id { return Err(ApiError::BadRequest("cannot create private chat with yourself")); }
 
-    // check: esiste già una chat privata tra i due?
     let existing = sqlx::query!(
-        r#"
-        SELECT c.id
-        FROM chat c
-        JOIN association a1 ON a1.chat_id = c.id AND a1.user_id = ?
-        JOIN association a2 ON a2.chat_id = c.id AND a2.user_id = ?
-        WHERE c.is_group = 0
-        LIMIT 1
-        "#,
-        user_id,
-        other_id
-    )
-    .fetch_optional(&mut *tx)
-    .await?;
+        "SELECT c.id FROM chat c JOIN association a1 ON a1.chat_id = c.id AND a1.user_id = ? JOIN association a2 ON a2.chat_id = c.id AND a2.user_id = ? WHERE c.is_group = 0 LIMIT 1",
+        user_id, other_id
+    ).fetch_optional(&mut *tx).await?;
 
-    if existing.is_some() {
-        // idealmente 409 Conflict
-        return Err(ApiError::BadRequest("private chat already exists"));
-    }
-    // crea chat privata: is_group = 0, name = NULL
-    let chat = sqlx::query!(
-        r#"
-        INSERT INTO chat(name, created_at, is_group)
-        VALUES (NULL, datetime('now'), 0)
-        RETURNING id, name, created_at, is_group
-        "#
-    )
-    .fetch_one(&mut *tx)
-    .await?;
+    if existing.is_some() { return Err(ApiError::BadRequest("private chat already exists")); }
 
-    // associa entrambi gli utenti alla chat
-    sqlx::query!(
-        r#"INSERT INTO association(user_id, chat_id, join_at)
-           VALUES (?, ?, datetime('now'))"#,
-        user_id,
-        chat.id
-    )
-    .execute(&mut *tx)
-    .await?;
+    let chat = sqlx::query!("INSERT INTO chat(name, created_at, is_group) VALUES (NULL, datetime('now'), 0) RETURNING id, name, created_at, is_group")
+        .fetch_one(&mut *tx).await?;
 
-    sqlx::query!(
-        r#"INSERT INTO association(user_id, chat_id, join_at)
-           VALUES (?, ?, datetime('now'))"#,
-        other_id,
-        chat.id
-    )
-    .execute(&mut *tx)
-    .await?;
+    sqlx::query!("INSERT INTO association(user_id, chat_id, join_at, last_read_at) VALUES (?, ?, datetime('now'), datetime('now'))", user_id, chat.id)
+        .execute(&mut *tx).await?;
+
+    sqlx::query!("INSERT INTO association(user_id, chat_id, join_at) VALUES (?, ?, datetime('now'))", other_id, chat.id)
+        .execute(&mut *tx).await?;
 
     tx.commit().await?;
     
-    let other_display_name = if other.name.trim().is_empty() {
-        other.username.clone()
-    } else {
-        other.name.clone()
-    };
+    let other_display_name = if other.name.trim().is_empty() { other.username.clone() } else { other.name.clone() };
 
     Ok(Json(ChatDto {
         id: chat.id,
         name: Some(other_display_name),
         created_at: chat.created_at,
         is_group: chat.is_group,
-        last_message: None, // Una chat appena creata non ha messaggi
+        last_message: None,
+        unread_count: 0,
     }))
 }
 
 // GET /api/chats/<chat_id>/participants
-// Returns the list of users in a specific chat
 pub async fn get_chat_participants(
     State(st): State<AppState>,
     cookies: Cookies,
     Path(chat_id): Path<i64>,
 ) -> Result<Json<Vec<ParticipantDto>>, ApiError> {
-    
-    // Auth
     let sid_cookie = cookies.get("sid").ok_or(ApiError::Unauthorized)?;
     let payload = verify_cookie_value(sid_cookie.value(), &st.cookie_secret).ok_or(ApiError::Unauthorized)?;
     let user_id = payload.uid;
 
-    // Check if the requesting user is in the chat
-    let in_chat = sqlx::query!(
-        "SELECT user_id FROM association WHERE user_id = ? AND chat_id = ?",
+    let in_chat = sqlx::query!("SELECT user_id FROM association WHERE user_id = ? AND chat_id = ?", user_id, chat_id)
+        .fetch_optional(&st.pool).await?;
+
+    if in_chat.is_none() { return Err(ApiError::Forbidden); }
+
+    let rows = sqlx::query!(
+        r#"SELECT u.id AS "id!: i64", COALESCE(u.name, u.username, '') AS "name!: String", u.username AS "username!: String" FROM user u JOIN association a ON a.user_id = u.id WHERE a.chat_id = ?"#,
+        chat_id
+    ).fetch_all(&st.pool).await?;
+
+    let participants = rows.into_iter().map(|r| ParticipantDto { id: r.id, name: r.name, username: r.username }).collect();
+    Ok(Json(participants))
+}
+
+// PATCH /api/chats/<chat_id>/read
+pub async fn patch_chat_read(
+    State(st): State<AppState>,
+    cookies: Cookies,
+    Path(chat_id): Path<i64>,
+) -> Result<Json<()>, ApiError> {
+    let sid_cookie = cookies.get("sid").ok_or(ApiError::Unauthorized)?;
+    let payload = verify_cookie_value(sid_cookie.value(), &st.cookie_secret).ok_or(ApiError::Unauthorized)?;
+    let user_id = payload.uid;
+
+    let result = sqlx::query!(
+        "UPDATE association SET last_read_at = datetime('now') WHERE user_id = ? AND chat_id = ?",
         user_id,
         chat_id
     )
-    .fetch_optional(&st.pool)
+    .execute(&st.pool)
     .await?;
 
-    if in_chat.is_none() {
+    if result.rows_affected() == 0 {
         return Err(ApiError::Forbidden); 
     }
 
-    // Query for participants - CORRETTA E CORAZZATA
-    let rows = sqlx::query!(
-        r#"
-        SELECT 
-            u.id AS "id!: i64", 
-            COALESCE(u.name, u.username, '') AS "name!: String", 
-            u.username AS "username!: String"
-        FROM user u
-        JOIN association a ON a.user_id = u.id
-        WHERE a.chat_id = ?
-        "#,
-        chat_id
-    )
-    .fetch_all(&st.pool)
-    .await?;
-
-    // Mapping
-    let participants = rows
-        .into_iter()
-        .map(|r| ParticipantDto {
-            id: r.id,
-            name: r.name,
-            username: r.username,
-        })
-        .collect();
-
-    Ok(Json(participants))
+    Ok(Json(()))
 }
