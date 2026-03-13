@@ -1,20 +1,20 @@
 // useGroups.jsx
 import { useEffect, useState } from 'react';
 import API from '../api/client';
-import { useAuth } from './useAuth'; 
-import { useNotifications } from './NotificationsProvider'; 
+import { useAuth } from './useAuth';
+import { useNotifications } from './NotificationsProvider';
 
 export const useGroupsState = () => {
   const { loggedIn } = useAuth();
-  const { incomingMessage } = useNotifications(); 
-  
+  const { incomingMessage } = useNotifications();
+
   const [groups, setGroups] = useState([]);
   const [loadingGroups, setLoadingGroups] = useState(true);
   const [groupsError, setGroupsError] = useState(null);
 
   useEffect(() => {
     // ... (la logica di loadGroups rimane identica a prima)
-    if (!loggedIn) {  
+    if (!loggedIn) {
       setGroups([]);
       setLoadingGroups(false);
       return;
@@ -37,7 +37,7 @@ export const useGroupsState = () => {
     };
     loadGroups();
     return () => { cancelled = true; };
-  }, [loggedIn]);  
+  }, [loggedIn]);
 
   // --- NUOVA FUNZIONE: Sposta in cima e aggiorna il testo ---
   const updateGroupActivity = (chatId, message) => {
@@ -46,12 +46,12 @@ export const useGroupsState = () => {
       if (chatIndex > -1) {
         const newGroups = [...prevGroups];
         const chatToUpdate = { ...newGroups[chatIndex] }; // cloniamo per non mutare lo stato originario
-        
+
         // AGGIORNIAMO L'ULTIMO MESSAGGIO
         chatToUpdate.last_message = {
-            content: message.content,
-            sent_at: message.sent_at,
-            sender_name: message.from?.name || message.from?.username || ''
+          content: message.content,
+          sent_at: message.sent_at,
+          sender_name: message.from?.name || message.from?.username || ''
         };
 
         // Rimuoviamo la vecchia posizione e lo mettiamo in cima
@@ -70,6 +70,9 @@ export const useGroupsState = () => {
 
   const addGroup = (group) => setGroups((prev) => [group, ...prev]);
 
+  const removeGroup = (chatId) =>
+    setGroups((prev) => prev.filter((g) => g.id !== chatId));
+
   // Esportiamo la nuova funzione
-  return { groups, loadingGroups, groupsError, addGroup, updateGroupActivity };
+  return { groups, loadingGroups, groupsError, addGroup, removeGroup, updateGroupActivity };
 };

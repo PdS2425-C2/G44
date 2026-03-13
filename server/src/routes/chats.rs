@@ -1,12 +1,13 @@
 use axum::{
-    extract::{Path, Query, State},
     Json,
+    extract::{Path, Query, State},
+    http::StatusCode,
 };
 use serde::{Deserialize, Serialize};
 use tower_cookies::Cookies;
 
 use crate::{
-    auth::verify_cookie_value,
+    auth::{uid_from_cookies, verify_cookie_value},
     error::ApiError,
     state::AppState,
 };
@@ -62,12 +63,10 @@ pub async fn get_chats(
     cookies: Cookies,
     Query(params): Query<ChatsQuery>,
 ) -> Result<Json<Vec<ChatDto>>, ApiError> {
-    let sid_cookie = cookies
-        .get("sid")
-        .ok_or(ApiError::Unauthorized)?;
+    let sid_cookie = cookies.get("sid").ok_or(ApiError::Unauthorized)?;
 
-    let payload = verify_cookie_value(sid_cookie.value(), &st.cookie_secret)
-        .ok_or(ApiError::Unauthorized)?;
+    let payload =
+        verify_cookie_value(sid_cookie.value(), &st.cookie_secret).ok_or(ApiError::Unauthorized)?;
 
     let user_id = payload.uid;
 
@@ -125,14 +124,26 @@ pub async fn get_chats(
     let chats = rows
         .into_iter()
         .map(|r| {
-            let last_message = match (r.last_message_content, r.last_message_sent_at, r.last_message_sender_name) {
-                (Some(content), Some(sent_at), Some(sender_name)) => Some(LastMessageDto { content, sent_at, sender_name }),
+            let last_message = match (
+                r.last_message_content,
+                r.last_message_sent_at,
+                r.last_message_sender_name,
+            ) {
+                (Some(content), Some(sent_at), Some(sender_name)) => Some(LastMessageDto {
+                    content,
+                    sent_at,
+                    sender_name,
+                }),
                 _ => None,
             };
 
             ChatDto {
                 id: r.id,
-                name: if r.name.is_empty() { None } else { Some(r.name) },
+                name: if r.name.is_empty() {
+                    None
+                } else {
+                    Some(r.name)
+                },
                 created_at: r.created_at,
                 is_group: r.is_group,
                 last_message,
@@ -150,7 +161,6 @@ pub async fn post_chats(
     cookies: Cookies,
     Json(req): Json<CreateChatReq>,
 ) -> Result<Json<ChatDto>, ApiError> {
-
     if req.name.trim().is_empty() {
         return Err(ApiError::BadRequest("chat name missing"));
     }
@@ -158,8 +168,7 @@ pub async fn post_chats(
     // --- auth ---
     let sid = cookies.get("sid").ok_or(ApiError::Unauthorized)?;
     let payload =
-        verify_cookie_value(sid.value(), &st.cookie_secret)
-            .ok_or(ApiError::Unauthorized)?;
+        verify_cookie_value(sid.value(), &st.cookie_secret).ok_or(ApiError::Unauthorized)?;
     let user_id = payload.uid;
 
     let mut tx = st.pool.begin().await?;
@@ -208,8 +217,8 @@ pub async fn post_private_chat(
 
     // auth
     let sid = cookies.get("sid").ok_or(ApiError::Unauthorized)?;
-    let payload = verify_cookie_value(sid.value(), &st.cookie_secret)
-        .ok_or(ApiError::Unauthorized)?;
+    let payload =
+        verify_cookie_value(sid.value(), &st.cookie_secret).ok_or(ApiError::Unauthorized)?;
     let user_id = payload.uid;
 
     let mut tx = st.pool.begin().await?;
@@ -227,7 +236,9 @@ pub async fn post_private_chat(
 
     // evita chat con se stessi
     if other_id == user_id {
-        return Err(ApiError::BadRequest("cannot create private chat with yourself"));
+        return Err(ApiError::BadRequest(
+            "cannot create private chat with yourself",
+        ));
     }
 
     // check: esiste già una chat privata tra i due?
@@ -281,7 +292,7 @@ pub async fn post_private_chat(
     .await?;
 
     tx.commit().await?;
-    
+
     let other_display_name = if other.name.trim().is_empty() {
         other.username.clone()
     } else {
@@ -304,10 +315,10 @@ pub async fn get_chat_participants(
     cookies: Cookies,
     Path(chat_id): Path<i64>,
 ) -> Result<Json<Vec<ParticipantDto>>, ApiError> {
-    
     // Auth
     let sid_cookie = cookies.get("sid").ok_or(ApiError::Unauthorized)?;
-    let payload = verify_cookie_value(sid_cookie.value(), &st.cookie_secret).ok_or(ApiError::Unauthorized)?;
+    let payload =
+        verify_cookie_value(sid_cookie.value(), &st.cookie_secret).ok_or(ApiError::Unauthorized)?;
     let user_id = payload.uid;
 
     // Check if the requesting user is in the chat
@@ -320,7 +331,7 @@ pub async fn get_chat_participants(
     .await?;
 
     if in_chat.is_none() {
-        return Err(ApiError::Forbidden); 
+        return Err(ApiError::Forbidden);
     }
 
     // Query for participants - CORRETTA E CORAZZATA
@@ -350,4 +361,53 @@ pub async fn get_chat_participants(
         .collect();
 
     Ok(Json(participants))
+}
+
+// DELETE /api/chats/:chat_id/members/me
+// Removes the authenticated user from a group chat.
+// Private chats cannot be left (403).
+pub async fn leave_chat(
+    State(st): State<AppState>,
+    cookies: Cookies,
+    Path(chat_id): Path<i64>,
+) -> Result<StatusCode, ApiError> {
+    let user_id = uid_from_cookies(&cookies, &st.cookie_secret).ok_or(ApiError::Unauthorized)?;
+
+    // Single query: fetch chat and verify membership in one round-trip.
+    // Returns (is_group, is_member) so we can give the right error in each case.
+    let row = sqlx::query!(
+        r#"
+        SELECT
+            c.is_group        AS "is_group!: bool",
+            a.user_id IS NOT NULL AS "is_member!: bool"
+        FROM chat c
+        LEFT JOIN association a
+            ON a.chat_id = c.id
+            AND a.user_id = ?
+        WHERE c.id = ?
+        "#,
+        user_id,
+        chat_id
+    )
+    .fetch_optional(&st.pool)
+    .await?
+    .ok_or(ApiError::NotFound)?; // chat does not exist
+
+    if !row.is_member {
+        return Err(ApiError::Forbidden); // user is not in this chat
+    }
+
+    if !row.is_group {
+        return Err(ApiError::Forbidden); // cannot leave a private chat
+    }
+
+    sqlx::query!(
+        "DELETE FROM association WHERE user_id = ? AND chat_id = ?",
+        user_id,
+        chat_id
+    )
+    .execute(&st.pool)
+    .await?;
+
+    Ok(StatusCode::NO_CONTENT)
 }

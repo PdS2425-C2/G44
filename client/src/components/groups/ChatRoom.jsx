@@ -4,6 +4,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useNotifications } from '../../hooks/NotificationsProvider';
 import API from '../../api/client';
 import { useGroups } from '../../hooks/GroupsProvider';
+import LeaveGroupModal from './LeaveGroupModal';
 
 // --- FUNZIONE HELPER PER I SEPARATORI DI DATA ---
 const formatSeparatorDate = (dateString) => {
@@ -21,17 +22,18 @@ const formatSeparatorDate = (dateString) => {
     }
 };
 
-const ChatRoom = ({ chat }) => {
+const ChatRoom = ({ chat, onLeave }) => {
     const { user } = useAuth();
-    
+
     const { incomingMessage } = useNotifications();
-    const { updateGroupActivity } = useGroups();
-    
+    const { updateGroupActivity, removeGroup } = useGroups();
+
     // STATI
     const [messages, setMessages] = useState([]);
-    const [participants, setParticipants] = useState([]); // <-- NUOVO STATO PER I PARTECIPANTI
+    const [participants, setParticipants] = useState([]);
     const [newMessage, setNewMessage] = useState('');
-    
+    const [showLeaveModal, setShowLeaveModal] = useState(false);
+
     const [loading, setLoading] = useState(false);
     const [sending, setSending] = useState(false);
     const [error, setError] = useState('');
@@ -49,17 +51,17 @@ const ChatRoom = ({ chat }) => {
     // --- FETCH CONGIUNTO: MESSAGGI + PARTECIPANTI ---
     const fetchMessages = async () => {
         if (!chat?.id) return;
-        
+
         setLoading(true);
         setError('');
-        
+
         try {
             // Promise.all fa partire le due chiamate in parallelo rendendo il tutto più veloce
             const [messagesData, participantsData] = await Promise.all([
                 API.getMessages(chat.id),
                 API.getParticipants(chat.id)
             ]);
-            
+
             setMessages(messagesData || []);
             setParticipants(participantsData || []);
         } catch (err) {
@@ -80,7 +82,7 @@ const ChatRoom = ({ chat }) => {
         setMessages((prev) => {
             const alreadyExists = prev.some((m) => m.id === incomingMessage.id);
             if (alreadyExists) return prev;
-            
+
             return [...prev, incomingMessage];
         });
     }, [incomingMessage, chat?.id]);
@@ -90,7 +92,7 @@ const ChatRoom = ({ chat }) => {
         if (!newMessage.trim() || sending) return;
 
         const messageText = newMessage.trim();
-        
+
         setNewMessage('');
         setSending(true);
 
@@ -103,7 +105,7 @@ const ChatRoom = ({ chat }) => {
         };
 
         setMessages((prev) => [...prev, tempMessage]);
-        
+
         // Aggiorniamo la lista a sinistra istantaneamente
         updateGroupActivity(chat.id, tempMessage);
 
@@ -119,32 +121,43 @@ const ChatRoom = ({ chat }) => {
 
     return (
         <div className="d-flex flex-column h-100 w-100 bg-white">
-            
+
             {/* --- HEADER DELLA CHAT --- */}
             <div className="p-3 border-bottom d-flex align-items-center bg-white shadow-sm" style={{ zIndex: 10 }}>
-                <div 
+                <div
                     className="d-flex justify-content-center align-items-center bg-light text-dark rounded-circle me-3 flex-shrink-0"
                     style={{ width: '48px', height: '48px' }}
                 >
                     <i className={`bi ${chat.is_group ? 'bi-people-fill' : 'bi-person-fill'} fs-5`}></i>
                 </div>
-                <div>
+                <div className="flex-grow-1">
                     <h5 className="mb-0 fw-bold">{chat.name}</h5>
-                    {/* ECCO I PARTECIPANTI SOTTO IL TITOLO! */}
                     <small className="text-muted text-truncate" style={{ maxWidth: '300px', display: 'block' }}>
-                        {chat.is_group 
-                            ? participants.map(p => p.name || p.username).join(', ') 
+                        {chat.is_group
+                            ? participants.map(p => p.name || p.username).join(', ')
                             : 'Chat privata'
                         }
                     </small>
                 </div>
+                {chat.is_group && (
+                    <Button
+                        variant="outline-danger"
+                        size="sm"
+                        className="ms-2 flex-shrink-0"
+                        title="Esci dal gruppo"
+                        onClick={() => setShowLeaveModal(true)}
+                    >
+                        <i className="bi bi-box-arrow-right me-1"></i>
+                        Esci
+                    </Button>
+                )}
             </div>
 
             {/* --- AREA MESSAGGI --- */}
             <div className="flex-grow-1 overflow-auto p-4 bg-light d-flex flex-column">
-                
+
                 {error && <Alert variant="danger" className="text-center">{error}</Alert>}
-                
+
                 {loading ? (
                     <div className="m-auto text-center text-muted">
                         <Spinner animation="border" variant="primary" className="mb-2" />
@@ -158,7 +171,7 @@ const ChatRoom = ({ chat }) => {
                     <>
                         {messages.map((msg, index) => {
                             const isMine = msg.from.id === user?.id;
-                            
+
                             // LOGICA DEL SEPARATORE DI DATA
                             const currentMessageDate = new Date(msg.sent_at).toDateString();
                             const previousMessageDate = index > 0 ? new Date(messages[index - 1].sent_at).toDateString() : null;
@@ -166,7 +179,7 @@ const ChatRoom = ({ chat }) => {
 
                             return (
                                 <React.Fragment key={msg.id}>
-                                    
+
                                     {/* DIVISORE DATA */}
                                     {showSeparator && (
                                         <div className="d-flex justify-content-center my-3">
@@ -178,10 +191,10 @@ const ChatRoom = ({ chat }) => {
 
                                     {/* FUMETTO MESSAGGIO */}
                                     <div className={`d-flex mb-3 ${isMine ? 'justify-content-end' : 'justify-content-start'}`}>
-                                        <div 
+                                        <div
                                             className={`p-3 rounded-4 shadow-sm ${isMine ? 'bg-primary text-white' : 'bg-white text-dark'}`}
-                                            style={{ 
-                                                maxWidth: '70%', 
+                                            style={{
+                                                maxWidth: '70%',
                                                 borderBottomRightRadius: isMine ? '4px' : '1rem',
                                                 borderBottomLeftRadius: !isMine ? '4px' : '1rem'
                                             }}
@@ -217,9 +230,9 @@ const ChatRoom = ({ chat }) => {
                         onChange={(e) => setNewMessage(e.target.value)}
                         disabled={loading}
                     />
-                    <Button 
-                        type="submit" 
-                        variant="primary" 
+                    <Button
+                        type="submit"
+                        variant="primary"
                         className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
                         style={{ width: '45px', height: '45px' }}
                         disabled={!newMessage.trim() || sending || loading}
@@ -228,6 +241,17 @@ const ChatRoom = ({ chat }) => {
                     </Button>
                 </Form>
             </div>
+
+            <LeaveGroupModal
+                show={showLeaveModal}
+                chat={chat}
+                onHide={() => setShowLeaveModal(false)}
+                onLeft={(chatId) => {
+                    setShowLeaveModal(false);
+                    removeGroup(chatId);
+                    onLeave?.();
+                }}
+            />
 
         </div>
     );
