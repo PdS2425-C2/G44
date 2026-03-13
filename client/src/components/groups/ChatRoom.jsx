@@ -27,7 +27,9 @@ const ChatRoom = ({ chat }) => {
     const { incomingMessage } = useNotifications();
     const { updateGroupActivity } = useGroups();
     
+    // STATI
     const [messages, setMessages] = useState([]);
+    const [participants, setParticipants] = useState([]); // <-- NUOVO STATO PER I PARTECIPANTI
     const [newMessage, setNewMessage] = useState('');
     
     const [loading, setLoading] = useState(false);
@@ -44,6 +46,7 @@ const ChatRoom = ({ chat }) => {
         scrollToBottom();
     }, [messages]);
 
+    // --- FETCH CONGIUNTO: MESSAGGI + PARTECIPANTI ---
     const fetchMessages = async () => {
         if (!chat?.id) return;
         
@@ -51,11 +54,17 @@ const ChatRoom = ({ chat }) => {
         setError('');
         
         try {
-            const data = await API.getMessages(chat.id);
-            setMessages(data || []);
+            // Promise.all fa partire le due chiamate in parallelo rendendo il tutto più veloce
+            const [messagesData, participantsData] = await Promise.all([
+                API.getMessages(chat.id),
+                API.getParticipants(chat.id)
+            ]);
+            
+            setMessages(messagesData || []);
+            setParticipants(participantsData || []);
         } catch (err) {
             console.error(err);
-            setError('Impossibile caricare i messaggi della chat.');
+            setError('Impossibile caricare i dati della chat.');
         } finally {
             setLoading(false);
         }
@@ -111,7 +120,7 @@ const ChatRoom = ({ chat }) => {
     return (
         <div className="d-flex flex-column h-100 w-100 bg-white">
             
-            {/* HEADER DELLA CHAT */}
+            {/* --- HEADER DELLA CHAT --- */}
             <div className="p-3 border-bottom d-flex align-items-center bg-white shadow-sm" style={{ zIndex: 10 }}>
                 <div 
                     className="d-flex justify-content-center align-items-center bg-light text-dark rounded-circle me-3 flex-shrink-0"
@@ -121,13 +130,17 @@ const ChatRoom = ({ chat }) => {
                 </div>
                 <div>
                     <h5 className="mb-0 fw-bold">{chat.name}</h5>
-                    <small className="text-muted">
-                        {chat.is_group ? 'Gruppo' : 'Chat privata'}
+                    {/* ECCO I PARTECIPANTI SOTTO IL TITOLO! */}
+                    <small className="text-muted text-truncate" style={{ maxWidth: '300px', display: 'block' }}>
+                        {chat.is_group 
+                            ? participants.map(p => p.name || p.username).join(', ') 
+                            : 'Chat privata'
+                        }
                     </small>
                 </div>
             </div>
 
-            {/* AREA MESSAGGI */}
+            {/* --- AREA MESSAGGI --- */}
             <div className="flex-grow-1 overflow-auto p-4 bg-light d-flex flex-column">
                 
                 {error && <Alert variant="danger" className="text-center">{error}</Alert>}
@@ -135,7 +148,7 @@ const ChatRoom = ({ chat }) => {
                 {loading ? (
                     <div className="m-auto text-center text-muted">
                         <Spinner animation="border" variant="primary" className="mb-2" />
-                        <p>Caricamento messaggi...</p>
+                        <p>Caricamento chat...</p>
                     </div>
                 ) : messages.length === 0 && !error ? (
                     <div className="m-auto text-center text-muted">
@@ -146,7 +159,7 @@ const ChatRoom = ({ chat }) => {
                         {messages.map((msg, index) => {
                             const isMine = msg.from.id === user?.id;
                             
-                            // --- LOGICA DEL SEPARATORE DI DATA ---
+                            // LOGICA DEL SEPARATORE DI DATA
                             const currentMessageDate = new Date(msg.sent_at).toDateString();
                             const previousMessageDate = index > 0 ? new Date(messages[index - 1].sent_at).toDateString() : null;
                             const showSeparator = currentMessageDate !== previousMessageDate;
@@ -193,7 +206,7 @@ const ChatRoom = ({ chat }) => {
                 )}
             </div>
 
-            {/* BARRA DI INPUT */}
+            {/* --- BARRA DI INPUT --- */}
             <div className="p-3 bg-white border-top">
                 <Form onSubmit={handleSendMessage} className="d-flex gap-2 align-items-center">
                     <Form.Control

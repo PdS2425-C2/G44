@@ -81,6 +81,9 @@ const API = {
       method: 'POST',
       body: JSON.stringify({ content }),
     }),
+
+  getParticipants: (chatId) =>
+    jsonFetch(`${BASE_URL}/chats/${chatId}/participants`),
 };
 
 export default API;

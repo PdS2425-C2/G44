@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Query, State},
+    extract::{Path, Query, State},
     Json,
 };
 use serde::{Deserialize, Serialize};
@@ -13,7 +13,7 @@ use crate::{
 
 // --------- DTOs ---------
 
-// 1. Nuovo DTO per l'ultimo messaggio
+// Nuovo DTO per l'ultimo messaggio
 #[derive(Debug, Serialize)]
 pub struct LastMessageDto {
     pub content: String,
@@ -21,7 +21,7 @@ pub struct LastMessageDto {
     pub sender_name: String,
 }
 
-// 2. Aggiunto il campo last_message a ChatDto
+// Aggiunto il campo last_message a ChatDto
 #[derive(Debug, Serialize)]
 pub struct ChatDto {
     pub id: i64,
@@ -31,11 +31,20 @@ pub struct ChatDto {
     pub last_message: Option<LastMessageDto>,
 }
 
+// Nuovo DTO per i partecipanti della chat
+#[derive(Debug, Serialize)]
+pub struct ParticipantDto {
+    pub id: i64,
+    pub name: String,
+    pub username: String,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct ChatsQuery {
     pub limit: Option<i64>,
     pub offset: Option<i64>,
 }
+
 #[derive(Deserialize)]
 pub struct CreateChatReq {
     pub name: String,
@@ -133,6 +142,7 @@ pub async fn get_chats(
 
     Ok(Json(chats))
 }
+
 // POST /api/chats
 // Creates a new chat and invites the specified users
 pub async fn post_chats(
@@ -184,7 +194,6 @@ pub async fn post_chats(
         last_message: None, // Una chat appena creata non ha messaggi
     }))
 }
-
 
 // POST /api/chats/private
 // Creates a new private chat between the authenticated user and the specified username
@@ -286,4 +295,59 @@ pub async fn post_private_chat(
         is_group: chat.is_group,
         last_message: None, // Una chat appena creata non ha messaggi
     }))
+}
+
+// GET /api/chats/<chat_id>/participants
+// Returns the list of users in a specific chat
+pub async fn get_chat_participants(
+    State(st): State<AppState>,
+    cookies: Cookies,
+    Path(chat_id): Path<i64>,
+) -> Result<Json<Vec<ParticipantDto>>, ApiError> {
+    
+    // Auth
+    let sid_cookie = cookies.get("sid").ok_or(ApiError::Unauthorized)?;
+    let payload = verify_cookie_value(sid_cookie.value(), &st.cookie_secret).ok_or(ApiError::Unauthorized)?;
+    let user_id = payload.uid;
+
+    // Check if the requesting user is in the chat
+    let in_chat = sqlx::query!(
+        "SELECT user_id FROM association WHERE user_id = ? AND chat_id = ?",
+        user_id,
+        chat_id
+    )
+    .fetch_optional(&st.pool)
+    .await?;
+
+    if in_chat.is_none() {
+        return Err(ApiError::Forbidden); 
+    }
+
+    // Query for participants - CORRETTA E CORAZZATA
+    let rows = sqlx::query!(
+        r#"
+        SELECT 
+            u.id AS "id!: i64", 
+            COALESCE(u.name, u.username, '') AS "name!: String", 
+            u.username AS "username!: String"
+        FROM user u
+        JOIN association a ON a.user_id = u.id
+        WHERE a.chat_id = ?
+        "#,
+        chat_id
+    )
+    .fetch_all(&st.pool)
+    .await?;
+
+    // Mapping
+    let participants = rows
+        .into_iter()
+        .map(|r| ParticipantDto {
+            id: r.id,
+            name: r.name,
+            username: r.username,
+        })
+        .collect();
+
+    Ok(Json(participants))
 }
