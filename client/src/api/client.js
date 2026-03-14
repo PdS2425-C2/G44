@@ -84,6 +84,8 @@ const API = {
 
   getParticipants: (chatId) =>
     jsonFetch(`${BASE_URL}/chats/${chatId}/participants`),
+
+  markAsRead: (chatId) => jsonFetch(`${BASE_URL}/chats/${chatId}/read`, { method: 'PATCH' }),
 };
 
 export default API;

@@ -22,10 +22,7 @@ const formatSeparatorDate = (dateString) => {
 
 const ChatRoom = ({ chat }) => {
     const { user } = useAuth();
-    
     const { incomingMessage } = useNotifications();
-    
-    // Importiamo anche resetUnreadCount
     const { updateGroupActivity, resetUnreadCount } = useGroups();
     
     const [messages, setMessages] = useState([]);
@@ -42,37 +39,17 @@ const ChatRoom = ({ chat }) => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
 
+    // --- MAGIA UNIFICATA: Azzera il badge quando apri e quando arrivano nuovi messaggi ---
     useEffect(() => {
         scrollToBottom();
-    }, [messages]);
 
-    // --- AZZERA IL CONTATORE QUANDO APRI LA CHAT ---
-    useEffect(() => {
-        if (!chat?.id) return;
-        
-        const markRead = async () => {
-            try {
-                await API.markAsRead(chat.id);
-                resetUnreadCount(chat.id);
-            } catch (err) {
-                console.error("Errore nel segnare come letto:", err);
-            }
-        };
-        markRead();
-    }, [chat?.id, resetUnreadCount]);
-
-    // --- AZZERA IL CONTATORE SE RICEVI UN MESSAGGIO MENTRE SEI GIA' NELLA CHAT ---
-    useEffect(() => {
-        if (!incomingMessage || incomingMessage.chat_id !== chat?.id) return;
-        
-        const markRead = async () => {
-            try {
-                await API.markAsRead(chat.id);
-                resetUnreadCount(chat.id);
-            } catch (err) { /* ignore */ }
-        };
-        markRead();
-    }, [incomingMessage, chat?.id, resetUnreadCount]);
+        if (chat?.id) {
+            // 1. Azzeramento immediato ottimistico della UI
+            resetUnreadCount(chat.id);
+            // 2. Comunicazione al database in background (silenziosa)
+            API.markAsRead(chat.id).catch(() => {});
+        }
+    }, [messages.length, chat?.id, resetUnreadCount]); // L'uso di messages.length elimina la race condition!
 
     const fetchMessages = async () => {
         if (!chat?.id) return;
@@ -128,9 +105,7 @@ const ChatRoom = ({ chat }) => {
 
         setMessages((prev) => [...prev, tempMessage]);
         
-        // Passiamo true perché questo messaggio lo abbiamo inviato (e quindi letto) noi
         updateGroupActivity(chat.id, tempMessage, true);
-        resetUnreadCount(chat.id);
 
         try {
             await API.sendMessage(chat.id, messageText);

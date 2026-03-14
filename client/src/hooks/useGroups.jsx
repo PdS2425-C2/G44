@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import API from '../api/client';
 import { useAuth } from './useAuth'; 
 import { useNotifications } from './NotificationsProvider'; 
@@ -37,7 +37,8 @@ export const useGroupsState = () => {
     return () => { cancelled = true; };
   }, [loggedIn]);  
 
-  const updateGroupActivity = (chatId, message, isReadByMe = false) => {
+  // Avvolto in useCallback per la stabilità
+  const updateGroupActivity = useCallback((chatId, message, isReadByMe = false) => {
     setGroups((prevGroups) => {
       const chatIndex = prevGroups.findIndex(g => g.id === chatId);
       if (chatIndex > -1) {
@@ -50,7 +51,6 @@ export const useGroupsState = () => {
             sender_name: message.from?.name || message.from?.username || ''
         };
 
-        // Se riceviamo un messaggio e non siamo dentro la chat, aumentiamo il numerino
         if (!isReadByMe) {
             chatToUpdate.unread_count = (chatToUpdate.unread_count || 0) + 1;
         }
@@ -60,21 +60,21 @@ export const useGroupsState = () => {
       }
       return prevGroups;
     });
-  };
+  }, []);
 
-  // Funzione per azzerare il badge quando apriamo la chat
-  const resetUnreadCount = (chatId) => {
+  // Avvolto in useCallback per la stabilità
+  const resetUnreadCount = useCallback((chatId) => {
       setGroups((prevGroups) => 
           prevGroups.map(g => g.id === chatId ? { ...g, unread_count: 0 } : g)
       );
-  };
+  }, []);
 
   useEffect(() => {
     if (!incomingMessage) return;
     updateGroupActivity(incomingMessage.chat_id, incomingMessage, false);
-  }, [incomingMessage]);
+  }, [incomingMessage, updateGroupActivity]);
 
-  const addGroup = (group) => setGroups((prev) => [group, ...prev]);
+  const addGroup = useCallback((group) => setGroups((prev) => [group, ...prev]), []);
 
   return { groups, loadingGroups, groupsError, addGroup, updateGroupActivity, resetUnreadCount };
 };
