@@ -44,12 +44,10 @@ const ChatRoom = ({ chat }) => {
         scrollToBottom();
 
         if (chat?.id) {
-            // 1. Azzeramento immediato ottimistico della UI
             resetUnreadCount(chat.id);
-            // 2. Comunicazione al database in background (silenziosa)
             API.markAsRead(chat.id).catch(() => {});
         }
-    }, [messages.length, chat?.id, resetUnreadCount]); // L'uso di messages.length elimina la race condition!
+    }, [messages.length, chat?.id, resetUnreadCount]); // L'uso di messages.length elimina la race condition
 
     const fetchMessages = async () => {
         if (!chat?.id) return;

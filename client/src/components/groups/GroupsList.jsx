@@ -60,7 +60,10 @@ const GroupsList = ({ groups, onSelectGroup }) => (
               </p>
 
               {g.unread_count > 0 && (
-                  <span className="badge bg-danger rounded-pill flex-shrink-0">
+                  <span 
+                    className="badge text-white rounded-pill flex-shrink-0" 
+                    style={{ backgroundColor: '#e65a41' }}
+                  >
                       {g.unread_count}
                   </span>
               )}

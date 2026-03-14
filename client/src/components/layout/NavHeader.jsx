@@ -4,7 +4,6 @@ import {
   Button,
   Container,
   Dropdown,
-  Badge,
 } from 'react-bootstrap';
 import { useNotifications } from '../../hooks/NotificationsProvider';
 
@@ -33,10 +32,14 @@ const NavHeader = ({
               <Dropdown align="end">
                 <Dropdown.Toggle variant="outline-light" id="dropdown-invitations">
                   <i className="bi bi-bell"></i>{' '}
+                  {/* IL NOSTRO SPAN RIBELLE CHE IGNORA IL BLU! */}
                   {invitations.length > 0 && (
-                    <Badge bg="danger" pill>
+                    <span 
+                      className="badge rounded-pill" 
+                      style={{ backgroundColor: '#e65a41', color: 'white' }}
+                    >
                       {invitations.length}
-                    </Badge>
+                    </span>
                   )}
                 </Dropdown.Toggle>
 

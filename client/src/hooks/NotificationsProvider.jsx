@@ -7,14 +7,11 @@ const NotificationsContext = createContext(null);
 export const NotificationsProvider = ({ children }) => {
   const { loggedIn } = useAuth();
   
-  // Stati per gli inviti
   const [invitations, setInvitations] = useState([]);
   const [selectedInvite, setSelectedInvite] = useState(null);
 
-  // --- NUOVO STATO: L'ultimo messaggio di chat ricevuto ---
   const [incomingMessage, setIncomingMessage] = useState(null);
 
-  // fetch richieste / inviti all'accesso
   useEffect(() => {
     if (!loggedIn) {
       setInvitations([]);
@@ -27,12 +24,10 @@ export const NotificationsProvider = ({ children }) => {
       .catch(() => setInvitations([]));
   }, [loggedIn]);
 
-  // websocket notifiche e messaggi
   useEffect(() => {
     if (!loggedIn) return;
 
-    // Nota: in produzione potresti voler usare l'URL completo (ws://...) o farti restituire l'host dinamicamente
-    const socket = new WebSocket('ws://localhost:3000/ws/notifications'); // <-- Assicurati che l'URL sia corretto per il tuo ambiente
+    const socket = new WebSocket('ws://localhost:3000/ws/notifications'); 
 
     socket.onopen = () => console.log('WS notifications connected');
 
@@ -41,7 +36,6 @@ export const NotificationsProvider = ({ children }) => {
         const msg = JSON.parse(event.data);
         console.log('WS message received', msg);
         
-        // 1. GESTIONE INVITI AI GRUPPI
         if (msg.type === 'invitation.created') {
           const invite = {
             id: msg.data.request_id,
@@ -59,10 +53,7 @@ export const NotificationsProvider = ({ children }) => {
           };
           setInvitations((prev) => [invite, ...prev]);
         } 
-        // 2. --- NUOVA GESTIONE: MESSAGGI CHAT RICEVUTI ---
         else if (msg.type === 'message.received') {
-            // Salviamo il messaggio nello stato. 
-            // La ChatRoom sarà in ascolto di questo stato.
             setIncomingMessage(msg.data);
         }
       } catch (e) {
@@ -86,7 +77,6 @@ export const NotificationsProvider = ({ children }) => {
         selectedInvite,
         setSelectedInvite,
         removeInvitation,
-        // --- ESPONIAMO IL NUOVO STATO ---
         incomingMessage,
       }}
     >
