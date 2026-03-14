@@ -5,7 +5,6 @@ import { useNotifications } from '../../hooks/NotificationsProvider';
 import API from '../../api/client';
 import { useGroups } from '../../hooks/GroupsProvider';
 
-// --- FUNZIONE HELPER PER I SEPARATORI DI DATA ---
 const formatSeparatorDate = (dateString) => {
     const date = new Date(dateString);
     const today = new Date();
@@ -25,11 +24,12 @@ const ChatRoom = ({ chat }) => {
     const { user } = useAuth();
     
     const { incomingMessage } = useNotifications();
-    const { updateGroupActivity } = useGroups();
     
-    // STATI
+    // Importiamo anche resetUnreadCount
+    const { updateGroupActivity, resetUnreadCount } = useGroups();
+    
     const [messages, setMessages] = useState([]);
-    const [participants, setParticipants] = useState([]); // <-- NUOVO STATO PER I PARTECIPANTI
+    const [participants, setParticipants] = useState([]); 
     const [newMessage, setNewMessage] = useState('');
     
     const [loading, setLoading] = useState(false);
@@ -46,7 +46,34 @@ const ChatRoom = ({ chat }) => {
         scrollToBottom();
     }, [messages]);
 
-    // --- FETCH CONGIUNTO: MESSAGGI + PARTECIPANTI ---
+    // --- AZZERA IL CONTATORE QUANDO APRI LA CHAT ---
+    useEffect(() => {
+        if (!chat?.id) return;
+        
+        const markRead = async () => {
+            try {
+                await API.markAsRead(chat.id);
+                resetUnreadCount(chat.id);
+            } catch (err) {
+                console.error("Errore nel segnare come letto:", err);
+            }
+        };
+        markRead();
+    }, [chat?.id, resetUnreadCount]);
+
+    // --- AZZERA IL CONTATORE SE RICEVI UN MESSAGGIO MENTRE SEI GIA' NELLA CHAT ---
+    useEffect(() => {
+        if (!incomingMessage || incomingMessage.chat_id !== chat?.id) return;
+        
+        const markRead = async () => {
+            try {
+                await API.markAsRead(chat.id);
+                resetUnreadCount(chat.id);
+            } catch (err) { /* ignore */ }
+        };
+        markRead();
+    }, [incomingMessage, chat?.id, resetUnreadCount]);
+
     const fetchMessages = async () => {
         if (!chat?.id) return;
         
@@ -54,7 +81,6 @@ const ChatRoom = ({ chat }) => {
         setError('');
         
         try {
-            // Promise.all fa partire le due chiamate in parallelo rendendo il tutto più veloce
             const [messagesData, participantsData] = await Promise.all([
                 API.getMessages(chat.id),
                 API.getParticipants(chat.id)
@@ -80,7 +106,6 @@ const ChatRoom = ({ chat }) => {
         setMessages((prev) => {
             const alreadyExists = prev.some((m) => m.id === incomingMessage.id);
             if (alreadyExists) return prev;
-            
             return [...prev, incomingMessage];
         });
     }, [incomingMessage, chat?.id]);
@@ -90,7 +115,6 @@ const ChatRoom = ({ chat }) => {
         if (!newMessage.trim() || sending) return;
 
         const messageText = newMessage.trim();
-        
         setNewMessage('');
         setSending(true);
 
@@ -104,8 +128,9 @@ const ChatRoom = ({ chat }) => {
 
         setMessages((prev) => [...prev, tempMessage]);
         
-        // Aggiorniamo la lista a sinistra istantaneamente
-        updateGroupActivity(chat.id, tempMessage);
+        // Passiamo true perché questo messaggio lo abbiamo inviato (e quindi letto) noi
+        updateGroupActivity(chat.id, tempMessage, true);
+        resetUnreadCount(chat.id);
 
         try {
             await API.sendMessage(chat.id, messageText);
@@ -119,8 +144,6 @@ const ChatRoom = ({ chat }) => {
 
     return (
         <div className="d-flex flex-column h-100 w-100 bg-white">
-            
-            {/* --- HEADER DELLA CHAT --- */}
             <div className="p-3 border-bottom d-flex align-items-center bg-white shadow-sm" style={{ zIndex: 10 }}>
                 <div 
                     className="d-flex justify-content-center align-items-center bg-light text-dark rounded-circle me-3 flex-shrink-0"
@@ -130,7 +153,6 @@ const ChatRoom = ({ chat }) => {
                 </div>
                 <div>
                     <h5 className="mb-0 fw-bold">{chat.name}</h5>
-                    {/* ECCO I PARTECIPANTI SOTTO IL TITOLO! */}
                     <small className="text-muted text-truncate" style={{ maxWidth: '300px', display: 'block' }}>
                         {chat.is_group 
                             ? participants.map(p => p.name || p.username).join(', ') 
@@ -140,9 +162,7 @@ const ChatRoom = ({ chat }) => {
                 </div>
             </div>
 
-            {/* --- AREA MESSAGGI --- */}
             <div className="flex-grow-1 overflow-auto p-4 bg-light d-flex flex-column">
-                
                 {error && <Alert variant="danger" className="text-center">{error}</Alert>}
                 
                 {loading ? (
@@ -158,16 +178,12 @@ const ChatRoom = ({ chat }) => {
                     <>
                         {messages.map((msg, index) => {
                             const isMine = msg.from.id === user?.id;
-                            
-                            // LOGICA DEL SEPARATORE DI DATA
                             const currentMessageDate = new Date(msg.sent_at).toDateString();
                             const previousMessageDate = index > 0 ? new Date(messages[index - 1].sent_at).toDateString() : null;
                             const showSeparator = currentMessageDate !== previousMessageDate;
 
                             return (
                                 <React.Fragment key={msg.id}>
-                                    
-                                    {/* DIVISORE DATA */}
                                     {showSeparator && (
                                         <div className="d-flex justify-content-center my-3">
                                             <span className="badge bg-secondary bg-opacity-25 text-dark rounded-pill px-3 py-1 fw-normal" style={{ fontSize: '0.8rem' }}>
@@ -175,8 +191,6 @@ const ChatRoom = ({ chat }) => {
                                             </span>
                                         </div>
                                     )}
-
-                                    {/* FUMETTO MESSAGGIO */}
                                     <div className={`d-flex mb-3 ${isMine ? 'justify-content-end' : 'justify-content-start'}`}>
                                         <div 
                                             className={`p-3 rounded-4 shadow-sm ${isMine ? 'bg-primary text-white' : 'bg-white text-dark'}`}
@@ -197,7 +211,6 @@ const ChatRoom = ({ chat }) => {
                                             </div>
                                         </div>
                                     </div>
-
                                 </React.Fragment>
                             );
                         })}
@@ -206,7 +219,6 @@ const ChatRoom = ({ chat }) => {
                 )}
             </div>
 
-            {/* --- BARRA DI INPUT --- */}
             <div className="p-3 bg-white border-top">
                 <Form onSubmit={handleSendMessage} className="d-flex gap-2 align-items-center">
                     <Form.Control
@@ -228,7 +240,6 @@ const ChatRoom = ({ chat }) => {
                     </Button>
                 </Form>
             </div>
-
         </div>
     );
 };

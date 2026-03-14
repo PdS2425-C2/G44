@@ -1,4 +1,3 @@
-// useGroups.jsx
 import { useEffect, useState } from 'react';
 import API from '../api/client';
 import { useAuth } from './useAuth'; 
@@ -13,7 +12,6 @@ export const useGroupsState = () => {
   const [groupsError, setGroupsError] = useState(null);
 
   useEffect(() => {
-    // ... (la logica di loadGroups rimane identica a prima)
     if (!loggedIn) {  
       setGroups([]);
       setLoadingGroups(false);
@@ -39,22 +37,24 @@ export const useGroupsState = () => {
     return () => { cancelled = true; };
   }, [loggedIn]);  
 
-  // --- NUOVA FUNZIONE: Sposta in cima e aggiorna il testo ---
-  const updateGroupActivity = (chatId, message) => {
+  const updateGroupActivity = (chatId, message, isReadByMe = false) => {
     setGroups((prevGroups) => {
       const chatIndex = prevGroups.findIndex(g => g.id === chatId);
       if (chatIndex > -1) {
         const newGroups = [...prevGroups];
-        const chatToUpdate = { ...newGroups[chatIndex] }; // cloniamo per non mutare lo stato originario
+        const chatToUpdate = { ...newGroups[chatIndex] }; 
         
-        // AGGIORNIAMO L'ULTIMO MESSAGGIO
         chatToUpdate.last_message = {
             content: message.content,
             sent_at: message.sent_at,
             sender_name: message.from?.name || message.from?.username || ''
         };
 
-        // Rimuoviamo la vecchia posizione e lo mettiamo in cima
+        // Se riceviamo un messaggio e non siamo dentro la chat, aumentiamo il numerino
+        if (!isReadByMe) {
+            chatToUpdate.unread_count = (chatToUpdate.unread_count || 0) + 1;
+        }
+
         newGroups.splice(chatIndex, 1);
         return [chatToUpdate, ...newGroups];
       }
@@ -62,14 +62,19 @@ export const useGroupsState = () => {
     });
   };
 
-  // Quando arriva un messaggio via WebSocket aggiorniamo subito!
+  // Funzione per azzerare il badge quando apriamo la chat
+  const resetUnreadCount = (chatId) => {
+      setGroups((prevGroups) => 
+          prevGroups.map(g => g.id === chatId ? { ...g, unread_count: 0 } : g)
+      );
+  };
+
   useEffect(() => {
     if (!incomingMessage) return;
-    updateGroupActivity(incomingMessage.chat_id, incomingMessage);
+    updateGroupActivity(incomingMessage.chat_id, incomingMessage, false);
   }, [incomingMessage]);
 
   const addGroup = (group) => setGroups((prev) => [group, ...prev]);
 
-  // Esportiamo la nuova funzione
-  return { groups, loadingGroups, groupsError, addGroup, updateGroupActivity };
+  return { groups, loadingGroups, groupsError, addGroup, updateGroupActivity, resetUnreadCount };
 };
