@@ -22,7 +22,7 @@ const formatSeparatorDate = (dateString) => {
 
 const ChatRoom = ({ chat }) => {
     const { user } = useAuth();
-    const { incomingMessage } = useNotifications();
+    const { incomingMessage, newMemberEvent } = useNotifications();
     const { updateGroupActivity, resetUnreadCount } = useGroups();
     
     const [messages, setMessages] = useState([]);
@@ -37,15 +37,6 @@ const ChatRoom = ({ chat }) => {
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
-
-    useEffect(() => {
-        scrollToBottom();
-
-        if (chat?.id) {
-            resetUnreadCount(chat.id);
-            API.markAsRead(chat.id).catch(() => {});
-        }
-    }, [messages.length, chat?.id, resetUnreadCount]);
 
     const fetchMessages = async () => {
         if (!chat?.id) return;
@@ -68,20 +59,6 @@ const ChatRoom = ({ chat }) => {
             setLoading(false);
         }
     };
-
-    useEffect(() => {
-        fetchMessages();
-    }, [chat?.id]);
-
-    useEffect(() => {
-        if (!incomingMessage || incomingMessage.chat_id !== chat?.id) return;
-
-        setMessages((prev) => {
-            const alreadyExists = prev.some((m) => m.id === incomingMessage.id);
-            if (alreadyExists) return prev;
-            return [...prev, incomingMessage];
-        });
-    }, [incomingMessage, chat?.id]);
 
     const handleSendMessage = async (e) => {
         e.preventDefault();
@@ -112,6 +89,40 @@ const ChatRoom = ({ chat }) => {
             setSending(false);
         }
     };
+
+    useEffect(() => {
+        scrollToBottom();
+
+        if (chat?.id) {
+            resetUnreadCount(chat.id);
+            API.markAsRead(chat.id).catch(() => {});
+        }
+    }, [messages.length, chat?.id, resetUnreadCount]);
+
+    useEffect(() => {
+        fetchMessages();
+    }, [chat?.id]);
+
+    useEffect(() => {
+        if (!incomingMessage || incomingMessage.chat_id !== chat?.id) return;
+
+        setMessages((prev) => {
+            const alreadyExists = prev.some((m) => m.id === incomingMessage.id);
+            if (alreadyExists) return prev;
+            return [...prev, incomingMessage];
+        });
+    }, [incomingMessage, chat?.id]);
+
+    useEffect(() => {
+        if (!newMemberEvent || newMemberEvent.chat_id !== chat?.id) return;
+
+        setParticipants((prev) => {
+            const exists = prev.some((p) => p.id === newMemberEvent.user.id);
+            if (exists) return prev;
+            return [...prev, newMemberEvent.user];
+        });
+    }, [newMemberEvent, chat?.id]);
+
 
     return (
         <div className="d-flex flex-column h-100 w-100 bg-white">

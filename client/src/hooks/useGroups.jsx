@@ -11,33 +11,27 @@ export const useGroupsState = () => {
   const [loadingGroups, setLoadingGroups] = useState(true);
   const [groupsError, setGroupsError] = useState(null);
 
+  const fetchGroups = useCallback(async () => {
+    try {
+      const gs = await API.getGroups();
+      setGroups(gs);
+    } catch (err) {
+      setGroupsError(err.message || 'Errore nel caricamento gruppi');
+    } finally {
+      setLoadingGroups(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (!loggedIn) {  
       setGroups([]);
       setLoadingGroups(false);
       return;
     }
+    
+    fetchGroups();
+  }, [loggedIn, fetchGroups]);  
 
-    let cancelled = false;
-    const loadGroups = async () => {
-      try {
-        const gs = await API.getGroups();
-        if (!cancelled) {
-          setGroups(gs);
-          setLoadingGroups(false);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setGroupsError(err.message || 'Errore nel caricamento gruppi');
-          setLoadingGroups(false);
-        }
-      }
-    };
-    loadGroups();
-    return () => { cancelled = true; };
-  }, [loggedIn]);  
-
-  // Avvolto in useCallback per la stabilità
   const updateGroupActivity = useCallback((chatId, message, isReadByMe = false) => {
     setGroups((prevGroups) => {
       const chatIndex = prevGroups.findIndex(g => g.id === chatId);
@@ -62,7 +56,6 @@ export const useGroupsState = () => {
     });
   }, []);
 
-  // Avvolto in useCallback per la stabilità
   const resetUnreadCount = useCallback((chatId) => {
       setGroups((prevGroups) => 
           prevGroups.map(g => g.id === chatId ? { ...g, unread_count: 0 } : g)
@@ -76,5 +69,13 @@ export const useGroupsState = () => {
 
   const addGroup = useCallback((group) => setGroups((prev) => [group, ...prev]), []);
 
-  return { groups, loadingGroups, groupsError, addGroup, updateGroupActivity, resetUnreadCount };
+  return { 
+    groups, 
+    loadingGroups, 
+    groupsError, 
+    addGroup, 
+    updateGroupActivity, 
+    resetUnreadCount,
+    refreshGroups: fetchGroups
+  };
 };

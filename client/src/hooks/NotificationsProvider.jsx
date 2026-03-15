@@ -11,6 +11,7 @@ export const NotificationsProvider = ({ children }) => {
   const [selectedInvite, setSelectedInvite] = useState(null);
 
   const [incomingMessage, setIncomingMessage] = useState(null);
+  const [newMemberEvent, setNewMemberEvent] = useState(null);
 
   useEffect(() => {
     if (!loggedIn) {
@@ -56,6 +57,9 @@ export const NotificationsProvider = ({ children }) => {
         else if (msg.type === 'message.received') {
             setIncomingMessage(msg.data);
         }
+        else if (msg.type === 'chat.member_joined') {
+            setNewMemberEvent(msg.data);
+        }
       } catch (e) {
         console.error('Error parsing WS message', e);
       }
@@ -78,6 +82,7 @@ export const NotificationsProvider = ({ children }) => {
         setSelectedInvite,
         removeInvitation,
         incomingMessage,
+        newMemberEvent,
       }}
     >
       {children}
