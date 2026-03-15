@@ -89,10 +89,9 @@ const LoginForm = ({ onLogin }) => {
 
                 <Button 
                   type="submit" 
-                  variant="primary" 
-                  className="w-100 rounded-pill py-2 fw-semibold fs-5" 
+                  className="w-100 rounded-pill py-2 fw-semibold fs-5 border-0 text-white" 
                   disabled={loading}
-                  style={{ transition: 'all 0.2s' }}
+                  style={{ transition: 'all 0.2s', backgroundColor: '#e65a41' }}
                 >
                   {loading ? (
                     <>
@@ -107,7 +106,7 @@ const LoginForm = ({ onLogin }) => {
                       Accesso...
                     </>
                   ) : (
-                    'Entra'
+                        'Entra'
                   )}
                 </Button>
 

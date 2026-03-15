@@ -32,7 +32,6 @@ const NavHeader = ({
               <Dropdown align="end">
                 <Dropdown.Toggle variant="outline-light" id="dropdown-invitations">
                   <i className="bi bi-bell"></i>{' '}
-                  {/* IL NOSTRO SPAN RIBELLE CHE IGNORA IL BLU! */}
                   {invitations.length > 0 && (
                     <span 
                       className="badge rounded-pill" 

@@ -28,7 +28,6 @@ const ChatRoom = ({ chat }) => {
     const [messages, setMessages] = useState([]);
     const [participants, setParticipants] = useState([]); 
     const [newMessage, setNewMessage] = useState('');
-    
     const [loading, setLoading] = useState(false);
     const [sending, setSending] = useState(false);
     const [error, setError] = useState('');
@@ -39,7 +38,6 @@ const ChatRoom = ({ chat }) => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
 
-    // --- MAGIA UNIFICATA: Azzera il badge quando apri e quando arrivano nuovi messaggi ---
     useEffect(() => {
         scrollToBottom();
 
@@ -47,7 +45,7 @@ const ChatRoom = ({ chat }) => {
             resetUnreadCount(chat.id);
             API.markAsRead(chat.id).catch(() => {});
         }
-    }, [messages.length, chat?.id, resetUnreadCount]); // L'uso di messages.length elimina la race condition
+    }, [messages.length, chat?.id, resetUnreadCount]);
 
     const fetchMessages = async () => {
         if (!chat?.id) return;
@@ -166,22 +164,34 @@ const ChatRoom = ({ chat }) => {
                                     )}
                                     <div className={`d-flex mb-3 ${isMine ? 'justify-content-end' : 'justify-content-start'}`}>
                                         <div 
-                                            className={`p-3 rounded-4 shadow-sm ${isMine ? 'bg-primary text-white' : 'bg-white text-dark'}`}
+                                            className={`px-3 py-2 shadow-sm ${isMine ? 'text-white' : 'bg-white text-dark'}`}
                                             style={{ 
-                                                maxWidth: '70%', 
-                                                borderBottomRightRadius: isMine ? '4px' : '1rem',
-                                                borderBottomLeftRadius: !isMine ? '4px' : '1rem'
+                                                maxWidth: '80%',
+                                                borderTopLeftRadius: '1.5rem',
+                                                borderTopRightRadius: '1.5rem',
+                                                borderBottomRightRadius: isMine ? '4px' : '1.5rem',
+                                                borderBottomLeftRadius: !isMine ? '4px' : '1.5rem',
+                                                backgroundColor: isMine ? '#e65a41' : undefined
                                             }}
                                         >
                                             {!isMine && chat.is_group && (
-                                                <div className="small fw-bold mb-1" style={{ color: '#0d6efd' }}>
+                                                <div className="small fw-bold mb-1" style={{ color: '#0d6efd', fontSize: '0.8rem' }}>
                                                     {msg.from.name || msg.from.username}
                                                 </div>
                                             )}
-                                            <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{msg.content}</div>
-                                            <div className={`small mt-1 text-end ${isMine ? 'text-white-50' : 'text-muted'}`} style={{ fontSize: '0.75rem' }}>
-                                                {new Date(msg.sent_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            
+                                            <div className="d-flex align-items-end flex-wrap">
+                                                <span style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', marginRight: '1rem' }}>
+                                                    {msg.content}
+                                                </span>
+                                                <span 
+                                                    className={`small ms-auto ${isMine ? 'text-white-50' : 'text-muted'}`} 
+                                                    style={{ fontSize: '0.7rem', marginBottom: '-2px' }}
+                                                >
+                                                    {new Date(msg.sent_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                </span>
                                             </div>
+
                                         </div>
                                     </div>
                                 </React.Fragment>
@@ -204,9 +214,8 @@ const ChatRoom = ({ chat }) => {
                     />
                     <Button 
                         type="submit" 
-                        variant="primary" 
-                        className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
-                        style={{ width: '45px', height: '45px' }}
+                        className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 text-white border-0"
+                        style={{ width: '45px', height: '45px', backgroundColor: '#e65a41' }}
                         disabled={!newMessage.trim() || sending || loading}
                     >
                         {sending ? <Spinner size="sm" /> : <i className="bi bi-send-fill"></i>}
