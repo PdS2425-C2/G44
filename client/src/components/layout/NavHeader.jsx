@@ -4,7 +4,6 @@ import {
   Button,
   Container,
   Dropdown,
-  Badge,
 } from 'react-bootstrap';
 import { useNotifications } from '../../hooks/NotificationsProvider';
 
@@ -29,45 +28,68 @@ const NavHeader = ({
 
           {loggedIn && (
             <div className="d-flex align-items-center gap-3">
-              {/* NOTIFICHE */}
               <Dropdown align="end">
                 <Dropdown.Toggle variant="outline-light" id="dropdown-invitations">
                   <i className="bi bi-bell"></i>{' '}
                   {invitations.length > 0 && (
-                    <Badge bg="danger" pill>
+                    <span 
+                      className="badge rounded-pill ms-1" 
+                      style={{ backgroundColor: '#e65a41', color: 'white' }}
+                    >
                       {invitations.length}
-                    </Badge>
+                    </span>
                   )}
                 </Dropdown.Toggle>
 
-                <Dropdown.Menu>
-                  <Dropdown.Header>Inviti</Dropdown.Header>
+                <Dropdown.Menu 
+                  className="shadow rounded-4 border-0 mt-2" 
+                  style={{ minWidth: '280px', padding: '0.5rem 0' }}
+                >
+                  <Dropdown.Header 
+                    className="fw-bold text-uppercase mb-1" 
+                    style={{ fontSize: '0.8rem', letterSpacing: '0.5px' }}
+                  >
+                    Inviti in sospeso
+                  </Dropdown.Header>
+                  
                   {invitations.length === 0 ? (
-                    <Dropdown.ItemText>Nessun invito</Dropdown.ItemText>
+                    <Dropdown.ItemText className="text-center text-muted py-4">
+                      <i className="bi bi-inbox fs-3 d-block mb-2 opacity-50"></i>
+                      Nessun invito
+                    </Dropdown.ItemText>
                   ) : (
                     invitations.map((inv) => (
                       <Dropdown.Item
                         key={inv.id}
                         onClick={() => setSelectedInvite(inv)}
+                        className="d-flex align-items-center gap-3 py-2 px-3"
                       >
-                        <div className="fw-semibold">{inv.chat.name}</div>
-                        <small className="text-muted">
-                          da {inv.from.username}
-                        </small>
+                        <div
+                          className="d-flex justify-content-center align-items-center rounded-circle flex-shrink-0"
+                          style={{ width: '40px', height: '40px', backgroundColor: '#fbece9', color: '#e65a41' }}
+                        >
+                          <i className="bi bi-envelope-paper-fill fs-5"></i>
+                        </div>
+                        <div className="overflow-hidden">
+                          <div className="fw-bold text-dark text-truncate">{inv.chat.name}</div>
+                          <small className="text-muted d-block text-truncate">
+                            da <span style={{ color: '#e65a41', fontWeight: '500' }}>@{inv.from.username}</span>
+                          </small>
+                        </div>
                       </Dropdown.Item>
                     ))
                   )}
                 </Dropdown.Menu>
               </Dropdown>
 
-              {/* USER + LOGOUT */}
-              <span className="text-light">
+              <span className="text-light fw-medium">
                 {user?.name || user?.username}
               </span>
               <Button
                 variant="outline-light"
                 size="sm"
                 onClick={handleLogout}
+                className="rounded-pill px-3 fw-semibold"
               >
                 Logout
               </Button>

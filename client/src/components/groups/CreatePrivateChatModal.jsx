@@ -22,7 +22,6 @@ const CreatePrivateChatModal = ({ show, onHide, onCreated, onOpenGroupModal }) =
     onOpenGroupModal?.();
   };
 
-  // --- NUOVA LOGICA: Creazione immediata ricevendo l'utente direttamente da UserSelect ---
   const handleCreateImmediate = async (selectedUser) => {
     setError('');
     setLoading(true);
@@ -74,12 +73,10 @@ const CreatePrivateChatModal = ({ show, onHide, onCreated, onOpenGroupModal }) =
             <p>Creazione chat in corso...</p>
           </div>
         ) : (
-          /* --- MODIFICA QUI: Passiamo onSelect invece di value/onChange --- */
           <UserSelect onSelect={handleCreateImmediate} />
         )}
       </Modal.Body>
 
-      {/* Rimosso il bottone "Crea Chat" blu, lasciamo solo Annulla */}
       <Modal.Footer className="border-0 pt-0">
         <Button variant="secondary" onClick={handleClose} disabled={loading} className="rounded-pill px-4">
           Annulla

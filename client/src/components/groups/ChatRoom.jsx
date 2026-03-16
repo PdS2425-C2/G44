@@ -6,7 +6,6 @@ import API from '../../api/client';
 import { useGroups } from '../../hooks/GroupsProvider';
 import LeaveGroupModal from './LeaveGroupModal';
 
-// --- FUNZIONE HELPER PER I SEPARATORI DI DATA ---
 const formatSeparatorDate = (dateString) => {
     const date = new Date(dateString);
     const today = new Date();
@@ -24,16 +23,13 @@ const formatSeparatorDate = (dateString) => {
 
 const ChatRoom = ({ chat, onLeave }) => {
     const { user } = useAuth();
-
-    const { incomingMessage } = useNotifications();
-    const { updateGroupActivity, removeGroup } = useGroups();
-
-    // STATI
+    const { incomingMessage, newMemberEvent } = useNotifications();
+    const { updateGroupActivity, resetUnreadCount, removeGroup } = useGroups();
+    
     const [messages, setMessages] = useState([]);
-    const [participants, setParticipants] = useState([]);
+    const [participants, setParticipants] = useState([]); 
     const [newMessage, setNewMessage] = useState('');
     const [showLeaveModal, setShowLeaveModal] = useState(false);
-
     const [loading, setLoading] = useState(false);
     const [sending, setSending] = useState(false);
     const [error, setError] = useState('');
@@ -44,11 +40,6 @@ const ChatRoom = ({ chat, onLeave }) => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
 
-    useEffect(() => {
-        scrollToBottom();
-    }, [messages]);
-
-    // --- FETCH CONGIUNTO: MESSAGGI + PARTECIPANTI ---
     const fetchMessages = async () => {
         if (!chat?.id) return;
 
@@ -56,7 +47,6 @@ const ChatRoom = ({ chat, onLeave }) => {
         setError('');
 
         try {
-            // Promise.all fa partire le due chiamate in parallelo rendendo il tutto più veloce
             const [messagesData, participantsData] = await Promise.all([
                 API.getMessages(chat.id),
                 API.getParticipants(chat.id)
@@ -72,27 +62,11 @@ const ChatRoom = ({ chat, onLeave }) => {
         }
     };
 
-    useEffect(() => {
-        fetchMessages();
-    }, [chat?.id]);
-
-    useEffect(() => {
-        if (!incomingMessage || incomingMessage.chat_id !== chat?.id) return;
-
-        setMessages((prev) => {
-            const alreadyExists = prev.some((m) => m.id === incomingMessage.id);
-            if (alreadyExists) return prev;
-
-            return [...prev, incomingMessage];
-        });
-    }, [incomingMessage, chat?.id]);
-
     const handleSendMessage = async (e) => {
         e.preventDefault();
         if (!newMessage.trim() || sending) return;
 
         const messageText = newMessage.trim();
-
         setNewMessage('');
         setSending(true);
 
@@ -105,9 +79,8 @@ const ChatRoom = ({ chat, onLeave }) => {
         };
 
         setMessages((prev) => [...prev, tempMessage]);
-
-        // Aggiorniamo la lista a sinistra istantaneamente
-        updateGroupActivity(chat.id, tempMessage);
+        
+        updateGroupActivity(chat.id, tempMessage, true);
 
         try {
             await API.sendMessage(chat.id, messageText);
@@ -119,10 +92,42 @@ const ChatRoom = ({ chat, onLeave }) => {
         }
     };
 
+    useEffect(() => {
+        scrollToBottom();
+
+        if (chat?.id) {
+            resetUnreadCount(chat.id);
+            API.markAsRead(chat.id).catch(() => {});
+        }
+    }, [messages.length, chat?.id, resetUnreadCount]);
+
+    useEffect(() => {
+        fetchMessages();
+    }, [chat?.id]);
+
+    useEffect(() => {
+        if (!incomingMessage || incomingMessage.chat_id !== chat?.id) return;
+
+        setMessages((prev) => {
+            const alreadyExists = prev.some((m) => m.id === incomingMessage.id);
+            if (alreadyExists) return prev;
+            return [...prev, incomingMessage];
+        });
+    }, [incomingMessage, chat?.id]);
+
+    useEffect(() => {
+        if (!newMemberEvent || newMemberEvent.chat_id !== chat?.id) return;
+
+        setParticipants((prev) => {
+            const exists = prev.some((p) => p.id === newMemberEvent.user.id);
+            if (exists) return prev;
+            return [...prev, newMemberEvent.user];
+        });
+    }, [newMemberEvent, chat?.id]);
+
+
     return (
         <div className="d-flex flex-column h-100 w-100 bg-white">
-
-            {/* --- HEADER DELLA CHAT --- */}
             <div className="p-3 border-bottom d-flex align-items-center bg-white shadow-sm" style={{ zIndex: 10 }}>
                 <div
                     className="d-flex justify-content-center align-items-center bg-light text-dark rounded-circle me-3 flex-shrink-0"
@@ -153,9 +158,7 @@ const ChatRoom = ({ chat, onLeave }) => {
                 )}
             </div>
 
-            {/* --- AREA MESSAGGI --- */}
             <div className="flex-grow-1 overflow-auto p-4 bg-light d-flex flex-column">
-
                 {error && <Alert variant="danger" className="text-center">{error}</Alert>}
 
                 {loading ? (
@@ -171,16 +174,12 @@ const ChatRoom = ({ chat, onLeave }) => {
                     <>
                         {messages.map((msg, index) => {
                             const isMine = msg.from.id === user?.id;
-
-                            // LOGICA DEL SEPARATORE DI DATA
                             const currentMessageDate = new Date(msg.sent_at).toDateString();
                             const previousMessageDate = index > 0 ? new Date(messages[index - 1].sent_at).toDateString() : null;
                             const showSeparator = currentMessageDate !== previousMessageDate;
 
                             return (
                                 <React.Fragment key={msg.id}>
-
-                                    {/* DIVISORE DATA */}
                                     {showSeparator && (
                                         <div className="d-flex justify-content-center my-3">
                                             <span className="badge bg-secondary bg-opacity-25 text-dark rounded-pill px-3 py-1 fw-normal" style={{ fontSize: '0.8rem' }}>
@@ -188,29 +187,38 @@ const ChatRoom = ({ chat, onLeave }) => {
                                             </span>
                                         </div>
                                     )}
-
-                                    {/* FUMETTO MESSAGGIO */}
                                     <div className={`d-flex mb-3 ${isMine ? 'justify-content-end' : 'justify-content-start'}`}>
-                                        <div
-                                            className={`p-3 rounded-4 shadow-sm ${isMine ? 'bg-primary text-white' : 'bg-white text-dark'}`}
-                                            style={{
-                                                maxWidth: '70%',
-                                                borderBottomRightRadius: isMine ? '4px' : '1rem',
-                                                borderBottomLeftRadius: !isMine ? '4px' : '1rem'
+                                        <div 
+                                            className={`px-3 py-2 shadow-sm ${isMine ? 'text-white' : 'bg-white text-dark'}`}
+                                            style={{ 
+                                                maxWidth: '80%',
+                                                borderTopLeftRadius: '1.5rem',
+                                                borderTopRightRadius: '1.5rem',
+                                                borderBottomRightRadius: isMine ? '4px' : '1.5rem',
+                                                borderBottomLeftRadius: !isMine ? '4px' : '1.5rem',
+                                                backgroundColor: isMine ? '#e65a41' : undefined
                                             }}
                                         >
                                             {!isMine && chat.is_group && (
-                                                <div className="small fw-bold mb-1" style={{ color: '#0d6efd' }}>
+                                                <div className="small fw-bold mb-1" style={{ color: '#0d6efd', fontSize: '0.8rem' }}>
                                                     {msg.from.name || msg.from.username}
                                                 </div>
                                             )}
-                                            <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{msg.content}</div>
-                                            <div className={`small mt-1 text-end ${isMine ? 'text-white-50' : 'text-muted'}`} style={{ fontSize: '0.75rem' }}>
-                                                {new Date(msg.sent_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            
+                                            <div className="d-flex align-items-end flex-wrap">
+                                                <span style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', marginRight: '1rem' }}>
+                                                    {msg.content}
+                                                </span>
+                                                <span 
+                                                    className={`small ms-auto ${isMine ? 'text-white-50' : 'text-muted'}`} 
+                                                    style={{ fontSize: '0.7rem', marginBottom: '-2px' }}
+                                                >
+                                                    {new Date(msg.sent_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                </span>
                                             </div>
+
                                         </div>
                                     </div>
-
                                 </React.Fragment>
                             );
                         })}
@@ -219,7 +227,6 @@ const ChatRoom = ({ chat, onLeave }) => {
                 )}
             </div>
 
-            {/* --- BARRA DI INPUT --- */}
             <div className="p-3 bg-white border-top">
                 <Form onSubmit={handleSendMessage} className="d-flex gap-2 align-items-center">
                     <Form.Control
@@ -230,11 +237,10 @@ const ChatRoom = ({ chat, onLeave }) => {
                         onChange={(e) => setNewMessage(e.target.value)}
                         disabled={loading}
                     />
-                    <Button
-                        type="submit"
-                        variant="primary"
-                        className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
-                        style={{ width: '45px', height: '45px' }}
+                    <Button 
+                        type="submit" 
+                        className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 text-white border-0"
+                        style={{ width: '45px', height: '45px', backgroundColor: '#e65a41' }}
                         disabled={!newMessage.trim() || sending || loading}
                     >
                         {sending ? <Spinner size="sm" /> : <i className="bi bi-send-fill"></i>}

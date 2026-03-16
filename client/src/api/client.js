@@ -30,66 +30,73 @@ const jsonFetch = async (url, options = {}) => {
 };
 
 const API = {
-    logIn: (credentials) =>
-        jsonFetch(`${BASE_URL}/sessions`, {
-            method: "POST",
-            body: JSON.stringify(credentials),
-        }),
+  logIn: (credentials) =>
+    jsonFetch(`${BASE_URL}/sessions`, {
+      method: 'POST',
+      body: JSON.stringify(credentials),
+    }),
 
-    getUserInfo: () => jsonFetch(`${BASE_URL}/sessions`),
+  getUserInfo: () =>
+    jsonFetch(`${BASE_URL}/sessions`),
 
-    logOut: () => jsonFetch(`${BASE_URL}/sessions`, { method: "DELETE" }),
+  logOut: () =>
+    jsonFetch(`${BASE_URL}/sessions`, { method: 'DELETE' }),
 
-    getGroups: () => jsonFetch(`${BASE_URL}/chats`),
+  getGroups: () =>
+    jsonFetch(`${BASE_URL}/chats`),
 
-    createGroup: (name) =>
-        jsonFetch(`${BASE_URL}/chats`, {
-            method: "POST",
-            body: JSON.stringify({ name }),
-        }),
+  createGroup: (name) =>
+    jsonFetch(`${BASE_URL}/chats`, {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    }),
+  
+  createPrivateChat: (username) =>
+    jsonFetch(`${BASE_URL}/chats/private`, {
+      method: 'POST',
+      body: JSON.stringify({ username }),
+    }),
 
-    createPrivateChat: (username) =>
-        jsonFetch(`${BASE_URL}/chats/private`, {
-            method: "POST",
-            body: JSON.stringify({ username }),
-        }),
+  searchUsers: (query) => {
+    const params = new URLSearchParams();
+    if (query) params.append('query', query);
+    params.append('limit', 10);
+    return jsonFetch(`${BASE_URL}/users?${params.toString()}`);
+  },
 
-    searchUsers: (query) => {
-        const params = new URLSearchParams();
-        if (query) params.append("query", query);
-        params.append("limit", 10);
-        return jsonFetch(`${BASE_URL}/users?${params.toString()}`);
-    },
+  getRequests: () =>
+    jsonFetch(`${BASE_URL}/requests`),
 
-    getRequests: () => jsonFetch(`${BASE_URL}/requests`),
+  createRequest: (groupId, username) =>
+    jsonFetch(`${BASE_URL}/chats/${groupId}/requests`, {
+      method: 'POST',
+      body: JSON.stringify({ username }),
+    }),
 
-    createRequest: (groupId, username) =>
-        jsonFetch(`${BASE_URL}/chats/${groupId}/requests`, {
-            method: "POST",
-            body: JSON.stringify({ username }),
-        }),
+  patchRequest: (id, status) =>
+    jsonFetch(`${BASE_URL}/requests/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    }),
 
-    patchRequest: (id, status) =>
-        jsonFetch(`${BASE_URL}/requests/${id}`, {
-            method: "PATCH",
-            body: JSON.stringify({ status }),
-        }),
+  getMessages: (chatId) =>
+    jsonFetch(`${BASE_URL}/chats/${chatId}/messages`),
 
-    getMessages: (chatId) => jsonFetch(`${BASE_URL}/chats/${chatId}/messages`),
+  sendMessage: (chatId, content) =>
+    jsonFetch(`${BASE_URL}/chats/${chatId}/messages`, {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+    }),
 
-    sendMessage: (chatId, content) =>
-        jsonFetch(`${BASE_URL}/chats/${chatId}/messages`, {
-            method: "POST",
-            body: JSON.stringify({ content }),
-        }),
+  getParticipants: (chatId) =>
+    jsonFetch(`${BASE_URL}/chats/${chatId}/participants`),
 
-    getParticipants: (chatId) =>
-        jsonFetch(`${BASE_URL}/chats/${chatId}/participants`),
-
-    leaveChat: (chatId) =>
-        jsonFetch(`${BASE_URL}/chats/${chatId}/members/me`, {
-            method: "DELETE",
-        }),
+  markAsRead: (chatId) => jsonFetch(`${BASE_URL}/chats/${chatId}/read`, { method: 'PATCH' }),
+    
+  leaveChat: (chatId) =>
+      jsonFetch(`${BASE_URL}/chats/${chatId}/members/me`, {
+          method: "DELETE",
+      }),
 };
 
 export default API;
