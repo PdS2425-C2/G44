@@ -2,12 +2,10 @@ import { useEffect, useState } from "react";
 import {
   Form,
   ListGroup,
-  Badge,
   Spinner
 } from "react-bootstrap";
 import API from '../../api/client';
 
-// Aggiungiamo onSelect come prop opzionale, e diamo un default a value = [] per evitare errori
 const UserSelect = ({ value = [], onChange, onSelect }) => {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
@@ -45,46 +43,38 @@ const UserSelect = ({ value = [], onChange, onSelect }) => {
     onChange(value.filter(u => u.username !== username));
   };
 
-  // --- NUOVA LOGICA: Decidiamo cosa fare al click ---
   const handleUserClick = (u) => {
     if (onSelect) {
-      // Se abbiamo passato onSelect, inneschiamo l'azione immediata!
       onSelect(u);
     } else {
-      // Altrimenti, ci comportiamo come prima (aggiungendo l'utente alla lista per i gruppi)
       addUser(u);
     }
   };
 
   return (
-    // Ho aggiunto position-relative per evitare che il menu a tendina "voli" fuori posizione
     <Form.Group className="position-relative">
       
-      {/* utenti selezionati (i badge). Li nascondiamo se stiamo usando la modalità "onSelect" immediata */}
       {!onSelect && value.length > 0 && (
         <div className="mb-2">
           {value.map(u => (
-            <Badge
+            <span
               key={u.username}
-              bg="primary"
-              className="me-2 mb-1"
-              style={{ cursor: "pointer" }}
+              className="badge me-2 mb-1"
+              style={{ cursor: "pointer", backgroundColor: "#e65a41", color: "white" }}
               onClick={() => removeUser(u.username)}
             >
               {u.username} ✕
-            </Badge>
+            </span>
           ))}
         </div>
       )}
 
-      {/* input */}
       <Form.Control
         value={query}
         placeholder="Cerca per username o per nome"
         onChange={e => setQuery(e.target.value)}
       />
 
-      {/* dropdown */}
       {query && (
         <ListGroup className="position-absolute w-100 shadow z-3 mt-1">
           {loading && (
@@ -93,7 +83,6 @@ const UserSelect = ({ value = [], onChange, onSelect }) => {
             </ListGroup.Item>
           )}
 
-          {/* Sostituito addUser(u) con la nostra nuova funzione handleUserClick(u) */}
           {!loading && results.map(u => (
             <ListGroup.Item
               key={u.id}

@@ -70,7 +70,12 @@ const CreateGroupModal = ({ show, onHide, onCreated }) => {
           <Button variant="secondary" onClick={onHide} disabled={loading}>
             Annulla
           </Button>
-          <Button type="submit" variant="primary" disabled={loading}>
+          <Button 
+            type="submit" 
+            className="text-white border-0" 
+            style={{ backgroundColor: '#e65a41' }} 
+            disabled={loading}
+          >
             {loading ? 'Creazione...' : 'Crea gruppo'}
           </Button>
         </Modal.Footer>

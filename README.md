@@ -234,20 +234,6 @@ These endpoints are based on JS session management, with Axum and Tower may be v
         -   404 Not Found - The specified user does not exist
         -   500 Internal Server Error - An unexpected error occurred on the server
 
-
--   **DELETE** `/api/chats/{chat_id}/leave` [_Non mi piace come nome, se vi viene in mente qualcosa di meglio cambiatelo_]
-
-    -   Description: Leave a chat
-
-    -   Request parameters: None
-    -   Response: 204 No Content
-
-    -   Errors:
-        -   401 Unauthorized - No active session found
-        -   403 Forbidden - User does not have access to the requested resource
-        -   404 Not Found - The specified chat does not exist
-        -   500 Internal Server Error - An unexpected error occurred on the server
-
 -   **GET** `/api/chats/{chat_id}/members`
 
     -   Description: Get all members of a chat
@@ -269,6 +255,16 @@ These endpoints are based on JS session management, with Axum and Tower may be v
     -   Errors:
         -   401 Unauthorized - No active session found
         -   403 Forbidden - User does not have access to the requested resource
+        -   404 Not Found - The specified chat does not exist
+        -   500 Internal Server Error - An unexpected error occurred on the server
+
+-  **DELETE** `/api/chats/{chat_id}/members/me`
+
+    -   Description: Leave a group chat. The requesting user is removed from the chat's member list. This operation is only available for group chats — private chats cannot be left.
+    -   Response: 204 No Content
+    -   Errors:
+        -   401 Unauthorized - No active session found
+        -   403 Forbidden - User does not have access to the requested resource or cannot leave a private chat
         -   404 Not Found - The specified chat does not exist
         -   500 Internal Server Error - An unexpected error occurred on the server
 

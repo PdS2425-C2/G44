@@ -1,21 +1,32 @@
-const BASE_URL = '/api';
+const BASE_URL = "/api";
 
 const jsonFetch = async (url, options = {}) => {
-  const res = await fetch(url, {
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
-    ...options,
-  });
+    const res = await fetch(url, {
+        credentials: "include",
+        headers: {
+            "Content-Type": "application/json",
+            ...(options.headers || {}),
+        },
+        ...options,
+    });
 
-  if (!res.ok) {
-    const errorText = await res.text();
-    throw new Error(errorText || 'Request failed');
-  }
+    if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(errorText || "Request failed");
+    }
 
-  // Se la risposta è vuota (204), evita JSON.parse
-  if (res.status === 204) return null;
+    // Se la risposta è vuota (204), evita JSON.parse
+    if (res.status === 204) return null;
 
-  return res.json();
+    // A volte le API restituiscono 201 Created senza body per le POST
+    if (
+        res.status === 201 &&
+        !res.headers.get("content-type")?.includes("application/json")
+    ) {
+        return null;
+    }
+
+    return res.json();
 };
 
 const API = {
@@ -67,6 +78,25 @@ const API = {
       method: 'PATCH',
       body: JSON.stringify({ status }),
     }),
+
+  getMessages: (chatId) =>
+    jsonFetch(`${BASE_URL}/chats/${chatId}/messages`),
+
+  sendMessage: (chatId, content) =>
+    jsonFetch(`${BASE_URL}/chats/${chatId}/messages`, {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+    }),
+
+  getParticipants: (chatId) =>
+    jsonFetch(`${BASE_URL}/chats/${chatId}/participants`),
+
+  markAsRead: (chatId) => jsonFetch(`${BASE_URL}/chats/${chatId}/read`, { method: 'PATCH' }),
+    
+  leaveChat: (chatId) =>
+      jsonFetch(`${BASE_URL}/chats/${chatId}/members/me`, {
+          method: "DELETE",
+      }),
 };
 
 export default API;

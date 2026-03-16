@@ -17,18 +17,22 @@ const AppRoutes = () => {
     setSelectedInvite,
     removeInvitation,
   } = useNotifications();
-  const { addGroup } = useGroups();
+  const { refreshGroups } = useGroups();
 
   const handleAcceptInvite = async () => {
     if (!selectedInvite) return;
-    const newGroup = await API.patchRequest(selectedInvite.id, 'accept');
-    addGroup(newGroup);
+    
+    await API.patchRequest(selectedInvite.id, 'accept');
+    
+    await refreshGroups();
+    
     removeInvitation(selectedInvite.id);
     setSelectedInvite(null);
   };
 
   const handleRejectInvite = async () => {
     if (!selectedInvite) return;
+    
     await API.patchRequest(selectedInvite.id, 'reject');
     removeInvitation(selectedInvite.id);
     setSelectedInvite(null);

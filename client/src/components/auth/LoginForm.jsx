@@ -4,9 +4,9 @@ import {
   Button,
   Card,
   Container,
-  Row,
-  Col,
   Alert,
+  FloatingLabel,
+  Spinner
 } from 'react-bootstrap';
 
 const LoginForm = ({ onLogin }) => {
@@ -33,44 +33,88 @@ const LoginForm = ({ onLogin }) => {
   };
 
   return (
-    <Container className="mt-5">
-      <Row className="justify-content-center">
-        <Col md={6} lg={4}>
-          <Card>
-            <Card.Body>
-              <Card.Title className="mb-3">Login</Card.Title>
+    <Container>
+      <div className="d-flex flex-column align-items-center justify-content-center">
+        
+        <div className="text-center mb-4">
+          <h1 className="fw-bold mb-1" style={{ color: '#e65a41', fontSize: '3rem' }}>
+            🦀 Ruggine
+          </h1>
+          <p className="text-muted fs-5">Accedi per continuare</p>
+        </div>
 
-              {error && <Alert variant="danger">{error}</Alert>}
+        <div style={{ width: '100%', maxWidth: '420px' }}>
+          <Card className="border-0 shadow-sm rounded-4">
+            <Card.Body className="p-4 p-sm-5">
+              
+              {error && (
+                <Alert variant="danger" className="text-center rounded-3">
+                  {error}
+                </Alert>
+              )}
 
               <Form onSubmit={handleSubmit}>
-                <Form.Group className="mb-3" controlId="loginUsername">
-                  <Form.Label>Username</Form.Label>
+                
+                <FloatingLabel
+                  controlId="loginUsername"
+                  label="Username"
+                  className="mb-3 text-muted"
+                >
                   <Form.Control
                     type="text"
+                    placeholder="Inserisci username"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     required
+                    className="bg-light border-0 shadow-none rounded-3"
+                    style={{ paddingTop: '1.625rem', paddingBottom: '0.625rem' }}
                   />
-                </Form.Group>
+                </FloatingLabel>
 
-                <Form.Group className="mb-3" controlId="loginPassword">
-                  <Form.Label>Password</Form.Label>
+                <FloatingLabel
+                  controlId="loginPassword"
+                  label="Password"
+                  className="mb-4 text-muted"
+                >
                   <Form.Control
                     type="password"
+                    placeholder="Inserisci password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
+                    className="bg-light border-0 shadow-none rounded-3"
+                    style={{ paddingTop: '1.625rem', paddingBottom: '0.625rem' }}
                   />
-                </Form.Group>
+                </FloatingLabel>
 
-                <Button type="submit" variant="primary" disabled={loading}>
-                  {loading ? 'Accesso...' : 'Login'}
+                <Button 
+                  type="submit" 
+                  className="w-100 rounded-pill py-2 fw-semibold fs-5 border-0 text-white" 
+                  disabled={loading}
+                  style={{ transition: 'all 0.2s', backgroundColor: '#e65a41' }}
+                >
+                  {loading ? (
+                    <>
+                      <Spinner 
+                        as="span" 
+                        animation="border" 
+                        size="sm" 
+                        role="status" 
+                        aria-hidden="true" 
+                        className="me-2" 
+                      />
+                      Accesso...
+                    </>
+                  ) : (
+                        'Entra'
+                  )}
                 </Button>
+
               </Form>
             </Card.Body>
           </Card>
-        </Col>
-      </Row>
+        </div>
+      </div>
     </Container>
   );
 };

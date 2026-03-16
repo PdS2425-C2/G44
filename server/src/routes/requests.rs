@@ -36,7 +36,6 @@ pub async fn get_requests(
     State(st): State<AppState>,
     cookies: Cookies,
 ) -> Result<Json<Vec<RequestDto>>, ApiError> {
-    // auth
     let sid = cookies.get("sid").ok_or(ApiError::Unauthorized)?;
     let payload =
         verify_cookie_value(sid.value(), &st.cookie_secret).ok_or(ApiError::Unauthorized)?;
@@ -94,7 +93,6 @@ pub async fn post_chat_request(
     Path(chat_id): Path<i64>,
     Json(body): Json<PostRequestBody>,
 ) -> Result<StatusCode, ApiError> {
-    // 1. auth inviter
     let sid = cookies.get("sid").ok_or(ApiError::Unauthorized)?;
     let payload =
         verify_cookie_value(sid.value(), &st.cookie_secret).ok_or(ApiError::Unauthorized)?;
@@ -102,8 +100,6 @@ pub async fn post_chat_request(
 
     let mut tx = st.pool.begin().await?;
 
-    // 2. trova invitee + chat + inserisci richiesta
-    // (pseudo-SQL, adatta ai tuoi nomi reali)
     let invitee = sqlx::query!(
         r#"SELECT id, name, username FROM user WHERE username = ?"#,
         body.username
@@ -138,7 +134,6 @@ pub async fn post_chat_request(
 
     tx.commit().await?;
 
-    // 3. costruisci il payload WS secondo il formato richiesto
     let notif = json!({
         "type": "invitation.created",
         "data": {
@@ -151,7 +146,7 @@ pub async fn post_chat_request(
             "chat": {
                 "id": chat.id,
                 "name": chat.name,
-                "created_at": chat.created_at, // già String nel tuo DTO
+                "created_at": chat.created_at,
             },
             "sent_at": req.created_at,
         }
@@ -159,24 +154,21 @@ pub async fn post_chat_request(
 
     let msg = Message::Text(notif.to_string());
 
-    // 4. se l'invitato è connesso al WS notifiche, invia
     {
         let peers = st.notification_peers.read().await;
         if let Some(senders) = peers.get(&invitee.id.unwrap()) {
             for tx in senders.values() {
-                // se uno fallisce, continui sugli altri
                 let _ = tx.unbounded_send(msg.clone());
             }
         }
     }
 
     Ok(StatusCode::NO_CONTENT)
-
 }
 
 #[derive(Deserialize)]
 pub struct PatchReq {
-    pub status: String, // "accept" | "reject"
+    pub status: String,
 }
 
 pub async fn patch_request(
@@ -203,20 +195,33 @@ pub async fn patch_request(
 
     if body.status == "accept" {
         sqlx::query!(
-            r#"INSERT INTO association(user_id, chat_id, join_at)
-               VALUES (?, ?, datetime('now'))"#,
+            r#"INSERT INTO association(user_id, chat_id, join_at, last_read_at)
+               VALUES (?, ?, datetime('now'), datetime('now'))"#,
             user_id,
             req.chat_id
         )
         .execute(&mut *tx)
         .await?;
 
-        // Get the chat
         let chat = sqlx::query!(
             r#"SELECT id, name, created_at FROM chat WHERE id = ?"#,
             req.chat_id
         )
         .fetch_one(&mut *tx)
+        .await?;
+
+        let joined_user = sqlx::query!(
+            r#"SELECT id, name, username FROM user WHERE id = ?"#,
+            user_id
+        )
+        .fetch_one(&mut *tx)
+        .await?;
+
+        let other_members = sqlx::query!(
+            r#"SELECT user_id FROM association WHERE chat_id = ? AND user_id != ?"#,
+            req.chat_id, user_id
+        )
+        .fetch_all(&mut *tx)
         .await?;
 
         sqlx::query!(r#"DELETE FROM request WHERE id = ?"#, request_id)
@@ -225,6 +230,29 @@ pub async fn patch_request(
 
         tx.commit().await?;
 
+        let notif = json!({
+            "type": "chat.member_joined",
+            "data": {
+                "chat_id": req.chat_id,
+                "user": {
+                    "id": joined_user.id,
+                    "name": joined_user.name,
+                    "username": joined_user.username
+                }
+            }
+        });
+        let msg = Message::Text(notif.to_string());
+
+        {
+            let peers = st.notification_peers.read().await;
+            for member in other_members {
+                if let Some(senders) = peers.get(&member.user_id) {
+                    for tx in senders.values() {
+                        let _ = tx.unbounded_send(msg.clone());
+                    }
+                }
+            }
+        }
 
         return Ok(Json(ChatDto {
             id: chat.id,

@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS association (
   user_id INTEGER NOT NULL,
   chat_id INTEGER NOT NULL,
   join_at TEXT NOT NULL,
+  last_read_at TEXT, 
   PRIMARY KEY (user_id, chat_id),
   FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE,
   FOREIGN KEY (chat_id) REFERENCES chat(id) ON DELETE CASCADE
