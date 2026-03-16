@@ -214,7 +214,7 @@ pub async fn post_private_chat(
     // evita chat con se stessi
     if other_id == user_id {
         return Err(ApiError::BadRequest(
-            "cannot create private chat with yourself",
+            "Non puoi creare una chat privata con te stesso",
         ));
     }
 
@@ -223,7 +223,7 @@ pub async fn post_private_chat(
         user_id, other_id
     ).fetch_optional(&mut *tx).await?;
 
-    if existing.is_some() { return Err(ApiError::BadRequest("private chat already exists")); }
+    if existing.is_some() { return Err(ApiError::BadRequest("La chat privata esiste già")); }
 
     let chat = sqlx::query!("INSERT INTO chat(name, created_at, is_group) VALUES (NULL, datetime('now'), 0) RETURNING id, name, created_at, is_group")
         .fetch_one(&mut *tx).await?;
@@ -299,7 +299,7 @@ pub async fn patch_chat_read(
         return Err(ApiError::Forbidden); 
     }
 
-    Ok(Json(participants))
+    Ok(Json(()))
 }
 
 // DELETE /api/chats/:chat_id/members/me
