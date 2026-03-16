@@ -116,7 +116,7 @@ const Home = () => {
                 <Col md={7} lg={8} xl={9} className="p-0 d-none d-md-flex h-100 bg-light align-items-center justify-content-center">
                     {/* 4. RENDER CONDIZIONALE */}
                     {selectedChat ? (
-                        <ChatRoom chat={selectedChat} />
+                        <ChatRoom chat={selectedChat} onLeave={() => setSelectedChat(null)} />
                     ) : (
                         <div className="text-center text-muted">
                             <h5>Benvenuto, {user?.name}! 👋</h5>

@@ -1,12 +1,13 @@
 use axum::{
-    extract::{Path, Query, State},
     Json,
+    extract::{Path, Query, State},
+    http::StatusCode,
 };
 use serde::{Deserialize, Serialize};
 use tower_cookies::Cookies;
 
 use crate::{
-    auth::verify_cookie_value,
+    auth::{uid_from_cookies, verify_cookie_value},
     error::ApiError,
     state::AppState,
 };
@@ -83,7 +84,7 @@ pub async fn get_chats(
             lm.sent_at AS "last_message_sent_at?: String",
             lm.sender_name AS "last_message_sender_name?: String",
             (
-                -- ECCO LA MAGIA: Conta i messaggi inviati DOPO l'ultima lettura (o dopo l'ingresso se mai letta)
+                -- Conta i messaggi inviati DOPO l'ultima lettura (o dopo l'ingresso se mai letta)
                 SELECT COUNT(m.id)
                 FROM message m
                 WHERE m.chat_id = c.id
@@ -124,14 +125,26 @@ pub async fn get_chats(
     let chats = rows
         .into_iter()
         .map(|r| {
-            let last_message = match (r.last_message_content, r.last_message_sent_at, r.last_message_sender_name) {
-                (Some(content), Some(sent_at), Some(sender_name)) => Some(LastMessageDto { content, sent_at, sender_name }),
+            let last_message = match (
+                r.last_message_content,
+                r.last_message_sent_at,
+                r.last_message_sender_name,
+            ) {
+                (Some(content), Some(sent_at), Some(sender_name)) => Some(LastMessageDto {
+                    content,
+                    sent_at,
+                    sender_name,
+                }),
                 _ => None,
             };
 
             ChatDto {
                 id: r.id,
-                name: if r.name.is_empty() { None } else { Some(r.name) },
+                name: if r.name.is_empty() {
+                    None
+                } else {
+                    Some(r.name)
+                },
                 created_at: r.created_at,
                 is_group: r.is_group,
                 last_message,
@@ -198,7 +211,12 @@ pub async fn post_private_chat(
         .fetch_optional(&mut *tx).await?.ok_or(ApiError::NotFound)?;
     let other_id = other.id.ok_or(ApiError::Internal)?;
 
-    if other_id == user_id { return Err(ApiError::BadRequest("cannot create private chat with yourself")); }
+    // evita chat con se stessi
+    if other_id == user_id {
+        return Err(ApiError::BadRequest(
+            "cannot create private chat with yourself",
+        ));
+    }
 
     let existing = sqlx::query!(
         "SELECT c.id FROM chat c JOIN association a1 ON a1.chat_id = c.id AND a1.user_id = ? JOIN association a2 ON a2.chat_id = c.id AND a2.user_id = ? WHERE c.is_group = 0 LIMIT 1",
@@ -217,8 +235,12 @@ pub async fn post_private_chat(
         .execute(&mut *tx).await?;
 
     tx.commit().await?;
-    
-    let other_display_name = if other.name.trim().is_empty() { other.username.clone() } else { other.name.clone() };
+
+    let other_display_name = if other.name.trim().is_empty() {
+        other.username.clone()
+    } else {
+        other.name.clone()
+    };
 
     Ok(Json(ChatDto {
         id: chat.id,
@@ -237,7 +259,8 @@ pub async fn get_chat_participants(
     Path(chat_id): Path<i64>,
 ) -> Result<Json<Vec<ParticipantDto>>, ApiError> {
     let sid_cookie = cookies.get("sid").ok_or(ApiError::Unauthorized)?;
-    let payload = verify_cookie_value(sid_cookie.value(), &st.cookie_secret).ok_or(ApiError::Unauthorized)?;
+    let payload =
+        verify_cookie_value(sid_cookie.value(), &st.cookie_secret).ok_or(ApiError::Unauthorized)?;
     let user_id = payload.uid;
 
     let in_chat = sqlx::query!("SELECT user_id FROM association WHERE user_id = ? AND chat_id = ?", user_id, chat_id)
@@ -276,5 +299,54 @@ pub async fn patch_chat_read(
         return Err(ApiError::Forbidden); 
     }
 
-    Ok(Json(()))
+    Ok(Json(participants))
+}
+
+// DELETE /api/chats/:chat_id/members/me
+// Removes the authenticated user from a group chat.
+// Private chats cannot be left (403).
+pub async fn leave_chat(
+    State(st): State<AppState>,
+    cookies: Cookies,
+    Path(chat_id): Path<i64>,
+) -> Result<StatusCode, ApiError> {
+    let user_id = uid_from_cookies(&cookies, &st.cookie_secret).ok_or(ApiError::Unauthorized)?;
+
+    // Single query: fetch chat and verify membership in one round-trip.
+    // Returns (is_group, is_member) so we can give the right error in each case.
+    let row = sqlx::query!(
+        r#"
+        SELECT
+            c.is_group        AS "is_group!: bool",
+            a.user_id IS NOT NULL AS "is_member!: bool"
+        FROM chat c
+        LEFT JOIN association a
+            ON a.chat_id = c.id
+            AND a.user_id = ?
+        WHERE c.id = ?
+        "#,
+        user_id,
+        chat_id
+    )
+    .fetch_optional(&st.pool)
+    .await?
+    .ok_or(ApiError::NotFound)?; // chat does not exist
+
+    if !row.is_member {
+        return Err(ApiError::Forbidden); // user is not in this chat
+    }
+
+    if !row.is_group {
+        return Err(ApiError::Forbidden); // cannot leave a private chat
+    }
+
+    sqlx::query!(
+        "DELETE FROM association WHERE user_id = ? AND chat_id = ?",
+        user_id,
+        chat_id
+    )
+    .execute(&st.pool)
+    .await?;
+
+    Ok(StatusCode::NO_CONTENT)
 }

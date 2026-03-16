@@ -1,4 +1,4 @@
-use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
+use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use hmac::{Hmac, Mac};
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
@@ -36,6 +36,14 @@ pub fn make_cookie_value(uid: i64, ttl_secs: u64, secret: &[u8]) -> String {
     let a = URL_SAFE_NO_PAD.encode(payload_json);
     let b = URL_SAFE_NO_PAD.encode(sig);
     format!("{a}.{b}")
+}
+
+/// Convenience helper: extracts and validates the `sid` cookie, returning the user id.
+/// Returns `None` if the cookie is missing, malformed, or expired.
+pub fn uid_from_cookies(cookies: &tower_cookies::Cookies, secret: &[u8]) -> Option<i64> {
+    let sid = cookies.get("sid")?;
+    let payload = verify_cookie_value(sid.value(), secret)?;
+    Some(payload.uid)
 }
 
 pub fn verify_cookie_value(value: &str, secret: &[u8]) -> Option<SessionPayload> {

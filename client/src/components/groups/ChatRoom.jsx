@@ -4,6 +4,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useNotifications } from '../../hooks/NotificationsProvider';
 import API from '../../api/client';
 import { useGroups } from '../../hooks/GroupsProvider';
+import LeaveGroupModal from './LeaveGroupModal';
 
 const formatSeparatorDate = (dateString) => {
     const date = new Date(dateString);
@@ -20,14 +21,15 @@ const formatSeparatorDate = (dateString) => {
     }
 };
 
-const ChatRoom = ({ chat }) => {
+const ChatRoom = ({ chat, onLeave }) => {
     const { user } = useAuth();
     const { incomingMessage, newMemberEvent } = useNotifications();
-    const { updateGroupActivity, resetUnreadCount } = useGroups();
+    const { updateGroupActivity, resetUnreadCount, removeGroup } = useGroups();
     
     const [messages, setMessages] = useState([]);
     const [participants, setParticipants] = useState([]); 
     const [newMessage, setNewMessage] = useState('');
+    const [showLeaveModal, setShowLeaveModal] = useState(false);
     const [loading, setLoading] = useState(false);
     const [sending, setSending] = useState(false);
     const [error, setError] = useState('');
@@ -40,16 +42,16 @@ const ChatRoom = ({ chat }) => {
 
     const fetchMessages = async () => {
         if (!chat?.id) return;
-        
+
         setLoading(true);
         setError('');
-        
+
         try {
             const [messagesData, participantsData] = await Promise.all([
                 API.getMessages(chat.id),
                 API.getParticipants(chat.id)
             ]);
-            
+
             setMessages(messagesData || []);
             setParticipants(participantsData || []);
         } catch (err) {
@@ -127,26 +129,38 @@ const ChatRoom = ({ chat }) => {
     return (
         <div className="d-flex flex-column h-100 w-100 bg-white">
             <div className="p-3 border-bottom d-flex align-items-center bg-white shadow-sm" style={{ zIndex: 10 }}>
-                <div 
+                <div
                     className="d-flex justify-content-center align-items-center bg-light text-dark rounded-circle me-3 flex-shrink-0"
                     style={{ width: '48px', height: '48px' }}
                 >
                     <i className={`bi ${chat.is_group ? 'bi-people-fill' : 'bi-person-fill'} fs-5`}></i>
                 </div>
-                <div>
+                <div className="flex-grow-1">
                     <h5 className="mb-0 fw-bold">{chat.name}</h5>
                     <small className="text-muted text-truncate" style={{ maxWidth: '300px', display: 'block' }}>
-                        {chat.is_group 
-                            ? participants.map(p => p.name || p.username).join(', ') 
+                        {chat.is_group
+                            ? participants.map(p => p.name || p.username).join(', ')
                             : 'Chat privata'
                         }
                     </small>
                 </div>
+                {chat.is_group && (
+                    <Button
+                        variant="outline-danger"
+                        size="sm"
+                        className="ms-2 flex-shrink-0"
+                        title="Esci dal gruppo"
+                        onClick={() => setShowLeaveModal(true)}
+                    >
+                        <i className="bi bi-box-arrow-right me-1"></i>
+                        Esci
+                    </Button>
+                )}
             </div>
 
             <div className="flex-grow-1 overflow-auto p-4 bg-light d-flex flex-column">
                 {error && <Alert variant="danger" className="text-center">{error}</Alert>}
-                
+
                 {loading ? (
                     <div className="m-auto text-center text-muted">
                         <Spinner animation="border" variant="primary" className="mb-2" />
@@ -233,6 +247,18 @@ const ChatRoom = ({ chat }) => {
                     </Button>
                 </Form>
             </div>
+
+            <LeaveGroupModal
+                show={showLeaveModal}
+                chat={chat}
+                onHide={() => setShowLeaveModal(false)}
+                onLeft={(chatId) => {
+                    setShowLeaveModal(false);
+                    removeGroup(chatId);
+                    onLeave?.();
+                }}
+            />
+
         </div>
     );
 };
