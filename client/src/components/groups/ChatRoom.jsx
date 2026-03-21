@@ -146,14 +146,13 @@ const ChatRoom = ({ chat, onLeave }) => {
                 </div>
                 {chat.is_group && (
                     <Button
-                        variant="outline-danger"
-                        size="sm"
-                        className="ms-2 flex-shrink-0"
+                        variant="light"
+                        className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 text-muted border-0"
+                        style={{ width: '40px', height: '40px' }}
                         title="Esci dal gruppo"
                         onClick={() => setShowLeaveModal(true)}
                     >
-                        <i className="bi bi-box-arrow-right me-1"></i>
-                        Esci
+                        <i className="bi bi-box-arrow-right fs-5"></i>
                     </Button>
                 )}
             </div>
