@@ -4,33 +4,15 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
 };
-use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tower_cookies::Cookies;
 
-use crate::{auth::verify_cookie_value, error::ApiError, state::AppState};
-
-#[derive(Serialize)]
-pub struct RequestDto {
-    pub id: i64,
-    pub sent_at: String,
-    pub from: UserDto,
-    pub chat: ChatDto,
-}
-
-#[derive(Serialize)]
-pub struct UserDto {
-    pub id: i64,
-    pub name: String,
-    pub username: String,
-}
-
-#[derive(Serialize)]
-pub struct ChatDto {
-    pub id: i64,
-    pub name: Option<String>,
-    pub created_at: String,
-}
+use crate::{
+    auth::verify_cookie_value,
+    error::ApiError,
+    routes::dto::{ChatPreviewDto, PatchReq, PostRequestBody, RequestDto, UserDto},
+    state::AppState,
+};
 
 pub async fn get_requests(
     State(st): State<AppState>,
@@ -72,7 +54,7 @@ pub async fn get_requests(
                     name: r.from_name,
                     username: r.from_username,
                 },
-                chat: ChatDto {
+                chat: ChatPreviewDto {
                     id: r.chat_id,
                     name: r.chat_name,
                     created_at: r.chat_created,
@@ -80,11 +62,6 @@ pub async fn get_requests(
             })
             .collect(),
     ))
-}
-
-#[derive(Deserialize)]
-pub struct PostRequestBody {
-    pub username: String,
 }
 
 pub async fn post_chat_request(
@@ -166,17 +143,12 @@ pub async fn post_chat_request(
     Ok(StatusCode::NO_CONTENT)
 }
 
-#[derive(Deserialize)]
-pub struct PatchReq {
-    pub status: String,
-}
-
 pub async fn patch_request(
     State(st): State<AppState>,
     cookies: Cookies,
     Path(request_id): Path<i64>,
     Json(body): Json<PatchReq>,
-) -> Result<Json<ChatDto>, ApiError> {
+) -> Result<Json<ChatPreviewDto>, ApiError> {
     let sid = cookies.get("sid").ok_or(ApiError::Unauthorized)?;
     let payload =
         verify_cookie_value(sid.value(), &st.cookie_secret).ok_or(ApiError::Unauthorized)?;
@@ -254,7 +226,7 @@ pub async fn patch_request(
             }
         }
 
-        return Ok(Json(ChatDto {
+        return Ok(Json(ChatPreviewDto {
             id: chat.id,
             name: chat.name,
             created_at: chat.created_at,
@@ -266,7 +238,7 @@ pub async fn patch_request(
         .await?;
 
     tx.commit().await?;
-    Ok(Json(ChatDto {
+    Ok(Json(ChatPreviewDto {
         id: -1,
         name: None,
         created_at: "".to_string(),

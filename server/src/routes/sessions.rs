@@ -3,32 +3,19 @@ use axum::{
     http::StatusCode,
     Json,
 };
-use serde::{Deserialize, Serialize};
+use crate::{
+    auth::{make_cookie_value, verify_cookie_value},
+    error::ApiError,
+    routes::dto::{LoginReq, UserDto},
+    state::AppState,
+};
+
 use tower_cookies::{Cookie, Cookies};
 use argon2::{Argon2, PasswordVerifier};
 use password_hash::PasswordHash;
 
-use crate::{
-    auth::{make_cookie_value, verify_cookie_value},
-    error::ApiError,
-    state::AppState,
-};
 
 const SID_COOKIE: &str = "sid"; // nome del cookie di sessione
-
-// --------- DTOs ---------
-#[derive(Debug, Deserialize)]
-pub struct LoginReq {
-    pub username: String,
-    pub password: String,
-}
-
-#[derive(Debug, Serialize)]
-pub struct UserDto {
-    pub id: i64,
-    pub name: String,
-    pub username: String,
-}
 
 // --------- Funzioni helper per gestire i cookie di sessione ---------
 

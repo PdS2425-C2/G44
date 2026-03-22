@@ -3,57 +3,17 @@ use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
 };
-use serde::{Deserialize, Serialize};
 use tower_cookies::Cookies;
+use std::collections::HashMap;
 
 use crate::{
     auth::{uid_from_cookies, verify_cookie_value},
     error::ApiError,
+    routes::dto::{
+        ChatDto, ChatsQuery, CreateChatReq, CreatePrivateChatReq, LastMessageDto, ParticipantDto,
+    },
     state::AppState,
 };
-
-// --------- DTOs ---------
-
-#[derive(Debug, Serialize)]
-pub struct LastMessageDto {
-    pub content: String,
-    pub sent_at: String,
-    pub sender_name: String,
-}
-
-#[derive(Debug, Serialize)]
-pub struct ChatDto {
-    pub id: i64,
-    pub name: Option<String>,
-    pub created_at: String,
-    pub is_group: bool,
-    pub last_message: Option<LastMessageDto>,
-    pub unread_count: i64, // <-- NUOVO CAMPO PER IL BADGE
-}
-
-#[derive(Debug, Serialize)]
-pub struct ParticipantDto {
-    pub id: i64,
-    pub name: String,
-    pub username: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct ChatsQuery {
-    pub limit: Option<i64>,
-    pub offset: Option<i64>,
-}
-
-#[derive(Deserialize)]
-pub struct CreateChatReq {
-    pub name: String,
-}
-
-#[derive(Deserialize)]
-pub struct CreatePrivateChatReq {
-    pub username: String,
-}
-
 // GET /api/chats
 // Returns all chats the user belongs to (ORA CON IL CONTEGGIO MESSAGGI NON LETTI)
 pub async fn get_chats(
@@ -62,59 +22,28 @@ pub async fn get_chats(
     Query(params): Query<ChatsQuery>,
 ) -> Result<Json<Vec<ChatDto>>, ApiError> {
     let sid_cookie = cookies.get("sid").ok_or(ApiError::Unauthorized)?;
-    let payload = verify_cookie_value(sid_cookie.value(), &st.cookie_secret).ok_or(ApiError::Unauthorized)?;
+    let payload = verify_cookie_value(sid_cookie.value(), &st.cookie_secret)
+        .ok_or(ApiError::Unauthorized)?;
     let user_id = payload.uid;
 
     let limit = params.limit.unwrap_or(100);
     let offset = params.offset.unwrap_or(0);
 
-    let rows = sqlx::query!(
+    // 1) Chat base dell'utente
+    let base_rows = sqlx::query!(
         r#"
         SELECT
             c.id AS "id!: i64",
-            (
-                CASE
-                WHEN c.is_group = 1 THEN COALESCE(c.name, '')
-                ELSE COALESCE(u_other.name, u_other.username, '')
-                END
-            ) AS "name!: String",
-            c.created_at AS created_at,
-            c.is_group AS "is_group!: bool",
-            lm.content AS "last_message_content?: String",
-            lm.sent_at AS "last_message_sent_at?: String",
-            lm.sender_name AS "last_message_sender_name?: String",
-            (
-                -- Conta i messaggi inviati DOPO l'ultima lettura (o dopo l'ingresso se mai letta)
-                SELECT COUNT(m.id)
-                FROM message m
-                WHERE m.chat_id = c.id
-                AND m.sent_at > COALESCE(a_me.last_read_at, a_me.join_at)
-            ) AS "unread_count!: i64"
+            c.name AS "group_name?: String",
+            c.created_at AS "created_at!: String",
+            c.is_group AS "is_group!: bool"
         FROM chat c
         JOIN association a_me
             ON a_me.chat_id = c.id
-            AND a_me.user_id = ?
-        LEFT JOIN association a_other
-            ON a_other.chat_id = c.id
-            AND a_other.user_id != ?
-        LEFT JOIN user u_other
-            ON u_other.id = a_other.user_id
-        LEFT JOIN (
-            SELECT m1.chat_id, m1.content, m1.sent_at, COALESCE(u.name, u.username, '') AS sender_name
-            FROM message m1
-            JOIN user u ON u.id = m1.user_id
-            WHERE m1.id = (
-                SELECT m2.id 
-                FROM message m2 
-                WHERE m2.chat_id = m1.chat_id 
-                ORDER BY m2.sent_at DESC 
-                LIMIT 1
-            )
-        ) lm ON lm.chat_id = c.id
-        ORDER BY COALESCE(lm.sent_at, c.created_at) DESC
+        WHERE a_me.user_id = ?
+        ORDER BY c.created_at DESC
         LIMIT ? OFFSET ?
         "#,
-        user_id,
         user_id,
         limit,
         offset
@@ -122,33 +51,124 @@ pub async fn get_chats(
     .fetch_all(&st.pool)
     .await?;
 
-    let chats = rows
+    if base_rows.is_empty() {
+        return Ok(Json(vec![]));
+    }
+
+    // 2) Nomi delle chat private: per ogni chat, prendo l'altro utente
+    let other_user_rows = sqlx::query!(
+        r#"
+        SELECT
+            c.id AS "chat_id!: i64",
+            COALESCE(u.name, u.username, '') AS "other_name!: String"
+        FROM chat c
+        JOIN association a_me
+            ON a_me.chat_id = c.id
+           AND a_me.user_id = ?
+        JOIN association a_other
+            ON a_other.chat_id = c.id
+           AND a_other.user_id != ?
+        JOIN user u
+            ON u.id = a_other.user_id
+        WHERE c.is_group = 0
+        "#,
+        user_id,
+        user_id
+    )
+    .fetch_all(&st.pool)
+    .await?;
+
+    let other_name_by_chat: HashMap<i64, String> = other_user_rows
+        .into_iter()
+        .map(|r| (r.chat_id, r.other_name))
+        .collect();
+
+    // 3) Ultimo messaggio per ogni chat
+    let last_message_rows = sqlx::query!(
+        r#"
+        SELECT
+            m.chat_id AS "chat_id!: i64",
+            m.content AS "content!: String",
+            m.sent_at AS "sent_at!: String",
+            COALESCE(u.name, u.username, '') AS "sender_name!: String"
+        FROM message m
+        JOIN user u
+            ON u.id = m.user_id
+        WHERE m.id IN (
+            SELECT m2.id
+            FROM message m2
+            JOIN (
+                SELECT chat_id, MAX(sent_at) AS max_sent_at
+                FROM message
+                GROUP BY chat_id
+            ) latest
+                ON latest.chat_id = m2.chat_id
+               AND latest.max_sent_at = m2.sent_at
+        )
+        "#
+    )
+    .fetch_all(&st.pool)
+    .await?;
+
+    let last_message_by_chat: HashMap<i64, LastMessageDto> = last_message_rows
         .into_iter()
         .map(|r| {
-            let last_message = match (
-                r.last_message_content,
-                r.last_message_sent_at,
-                r.last_message_sender_name,
-            ) {
-                (Some(content), Some(sent_at), Some(sender_name)) => Some(LastMessageDto {
-                    content,
-                    sent_at,
-                    sender_name,
-                }),
-                _ => None,
+            (
+                r.chat_id,
+                LastMessageDto {
+                    content: r.content,
+                    sent_at: r.sent_at,
+                    sender_name: r.sender_name,
+                },
+            )
+        })
+        .collect();
+
+    // 4) Conteggio unread per ogni chat dell'utente
+    let unread_rows = sqlx::query!(
+        r#"
+        SELECT
+            c.id AS "chat_id!: i64",
+            COUNT(m.id) AS "unread_count!: i64"
+        FROM chat c
+        JOIN association a_me
+            ON a_me.chat_id = c.id
+           AND a_me.user_id = ?
+        LEFT JOIN message m
+            ON m.chat_id = c.id
+           AND m.sent_at > COALESCE(a_me.last_read_at, a_me.join_at)
+        GROUP BY c.id
+        "#,
+        user_id
+    )
+    .fetch_all(&st.pool)
+    .await?;
+
+    let unread_by_chat: HashMap<i64, i64> = unread_rows
+        .into_iter()
+        .map(|r| (r.chat_id, r.unread_count))
+        .collect();
+
+    // 5) Merge finale
+    let chats: Vec<ChatDto> = base_rows
+        .into_iter()
+        .map(|r| {
+            let name = if r.is_group {
+                r.group_name.filter(|n| !n.is_empty())
+            } else {
+                other_name_by_chat
+                    .get(&r.id)
+                    .cloned()
+                    .filter(|n| !n.is_empty())
             };
 
             ChatDto {
                 id: r.id,
-                name: if r.name.is_empty() {
-                    None
-                } else {
-                    Some(r.name)
-                },
+                name,
                 created_at: r.created_at,
                 is_group: r.is_group,
-                last_message,
-                unread_count: r.unread_count, // <-- Mappiamo il nuovo campo
+                last_message: last_message_by_chat.get(&r.id).cloned(),
+                unread_count: unread_by_chat.get(&r.id).copied().unwrap_or(0),
             }
         })
         .collect();

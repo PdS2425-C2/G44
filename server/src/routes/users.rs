@@ -2,26 +2,13 @@ use axum::{
     extract::{Query, State},
     Json,
 };
-use serde::{Deserialize, Serialize};
 
 use crate::{
     auth::verify_cookie_value,
     error::ApiError,
+    routes::dto::{UserDto, UsersQuery},
     state::AppState,
 };
-
-#[derive(Deserialize)]
-pub struct UsersQuery {
-    pub query: Option<String>,
-    pub limit: Option<i64>,
-}
-
-#[derive(Serialize)]
-pub struct UserDto {
-    pub id: i64,
-    pub name: String,
-    pub username: String,
-}
 
 pub async fn get_users(
     State(st): State<AppState>,

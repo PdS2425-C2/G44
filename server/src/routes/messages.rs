@@ -4,37 +4,14 @@ use axum::{
     Json,
     http::StatusCode,
 };
-use serde::{Deserialize, Serialize};
 use tower_cookies::Cookies;
 use serde_json::json;
 use crate::{
     auth::verify_cookie_value,
     error::ApiError,
+    routes::dto::{CreateMessageReq, MessageDto, UserDto},
     state::AppState,
 };
-
-
-// --------- DTOs ---------
-#[derive(Deserialize)]
-pub struct CreateMessageReq {
-    pub content: String,
-}
-
-#[derive(Serialize, Clone)]
-pub struct MessageDto {
-    pub id: i64,
-    pub from: UserDto,
-    pub chat_id: i64,
-    pub content: String,
-    pub sent_at: String,
-}
-
-#[derive(Serialize, Clone)]
-pub struct UserDto {
-    pub id: i64,
-    pub name: String,
-    pub username: String,
-}
 
 // Check if user belongs to chat
 async fn check_user_in_chat(st: &AppState, user_id: i64, chat_id: i64) -> Result<bool, ApiError> {
