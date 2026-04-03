@@ -35,10 +35,11 @@ export const useGroupsState = () => {
   const updateGroupActivity = useCallback((chatId, message, isReadByMe = false) => {
     setGroups((prevGroups) => {
       const chatIndex = prevGroups.findIndex(g => g.id === chatId);
+
       if (chatIndex > -1) {
         const newGroups = [...prevGroups];
-        const chatToUpdate = { ...newGroups[chatIndex] }; 
-        
+        const chatToUpdate = { ...newGroups[chatIndex] };
+
         chatToUpdate.last_message = {
           content: message.content,
           sent_at: message.sent_at,
@@ -46,13 +47,26 @@ export const useGroupsState = () => {
         };
 
         if (!isReadByMe) {
-            chatToUpdate.unread_count = (chatToUpdate.unread_count || 0) + 1;
+          chatToUpdate.unread_count = (chatToUpdate.unread_count || 0) + 1;
         }
 
         newGroups.splice(chatIndex, 1);
         return [chatToUpdate, ...newGroups];
       }
-      return prevGroups;
+
+      const newChat = {
+        id: chatId,
+        name: message.chat_name || message.from?.name || 'Nuova chat',
+        is_group: message.is_group ?? false,
+        unread_count: isReadByMe ? 0 : 1,
+        last_message: {
+          content: message.content,
+          sent_at: message.sent_at,
+          sender_name: message.from?.name || message.from?.username || ''
+        }
+      };
+
+      return [newChat, ...prevGroups];
     });
   }, []);
 
