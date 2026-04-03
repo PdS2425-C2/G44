@@ -3,6 +3,7 @@ mod auth;
 mod error;
 mod routes;
 mod state;
+mod cpu;
 
 use axum::{routing::{get, post, delete, patch}, Router};
 use sqlx::sqlite::SqlitePoolOptions;                // serve per creare una connection pool
@@ -13,7 +14,7 @@ use tracing::Level;
 use tracing_subscriber::{fmt, EnvFilter};
 use std::{collections::HashMap, sync::{Arc, atomic::AtomicU64}};
 use tokio::sync::RwLock;
-
+use crate::cpu::start_cpu_logger;
 
 fn init_tracing() {
     // Se non setti RUST_LOG, questo è il default:
@@ -34,7 +35,7 @@ async fn main() {
     // carico le variabili d'ambiente e setto l'url del db e il secret per i cookie. 
     dotenvy::dotenv().ok(); 
     init_tracing();
-                   
+    start_cpu_logger();             
 
     let db_url = std::env::var("DATABASE_URL")
         .unwrap_or_else(|_| "sqlite://data/ruggine.db".to_string());
