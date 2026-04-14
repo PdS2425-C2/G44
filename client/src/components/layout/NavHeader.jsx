@@ -17,7 +17,7 @@ const NavHeader = ({
 
   return (
     <Navbar bg="dark" variant="dark" expand="lg">
-      <Container>
+      <Container fluid>
         <Navbar.Brand href="/">
           🦀 Ruggine
         </Navbar.Brand>
