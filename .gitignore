@@ -11,6 +11,7 @@ Thumbs.db
 
 # Logs
 *.log
+server/cpu_log.txt
 
 # OS trash
 .trash/
