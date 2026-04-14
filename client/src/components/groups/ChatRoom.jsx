@@ -212,7 +212,7 @@ const ChatRoom = ({ chat, onLeave }) => {
                                                     className={`small ms-auto ${isMine ? 'text-white-50' : 'text-muted'}`} 
                                                     style={{ fontSize: '0.7rem', marginBottom: '-2px' }}
                                                 >
-                                                    {new Date(msg.sent_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    {new Date(msg.sent_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
                                                 </span>
                                             </div>
 
