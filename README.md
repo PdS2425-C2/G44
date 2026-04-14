@@ -14,16 +14,17 @@
     | Field    | Type           |
     | -------- | -------------- |
     | user_id  | int (FK user)  |
-    | group_id | int (FK group) |
-    | join_at  | datetime       |
+    | chat_id | int (FK chat) |
+    | joined_at  | datetime       |
 
--   group
+-   chat
 
     | Field      | Type     |
     | ---------- | -------- |
     | id         | int      |
     | name       | string   |
     | created_at | datetime |
+    | is_group | bool |
 
 -   message
 
@@ -31,42 +32,42 @@
     | -------- | -------------- |
     | id       | int            |
     | user_id  | int (FK user)  |
-    | group_id | int (FK group) |
+    | chat_id | int (FK chat) |
     | content  | string         |
     | sent_at  | datetime       |
 
 -   request
-  
+
     | Field    | Type           |
     | -------- | -------------- |
     | id       | int            |
     | from     | int (FK user)  |
     | to       | int (FK user)  |
-    | group_id | int (FK group) |
+    | chat_id | int (FK chat) |
     | sent_at  | datetime       |
 
 # User Requirements
 
 -   Login
 
-    After logging in, the user’s landing page must show the list of group names they belong to, along with a button to create a new group.
+    After logging in, the user’s landing page must show the list of chat names they belong to, along with a button to create a new chat.
 
 -   Invitation
-    
-    To start a new group, a user must send an invitation request to other users.
-    The invited users must then accept the request for the group to be officially created and shown in the landing page.
 
--   Group Selection
+    To start a new chat, a user must send an invitation request to other users.
+    The invited users must then accept the request for the chat to be officially created and shown in the landing page.
 
-    When the user clicks on a group, the application must display all messages posted after the user joined the group and allow:
+-   Chat Selection
+
+    When the user clicks on a chat, the application must display all messages posted after the user joined the chat and allow:
 
     -   sending new messages
-    -   sending invitation to other users to join the group
+    -   sending invitation to other users to join the chat
 
--   Leave Group
+-   Leave Chat
 
-    The user must be able to leave a group.
-    If the user is the last member of the group, the group should be deleted.
+    The user must be able to leave a chat.
+    If the user is the last member of the chat, the chat should be deleted.
 
 # API Rest
 
@@ -74,7 +75,7 @@
 
 These endpoints are based on JS session management, with Axum and Tower may be variate.
 
--   **POST** `/api/sessions`
+-   **POST** `/api/sessions` (login)
 
     -   Request Body:
         ```json
@@ -87,7 +88,7 @@ These endpoints are based on JS session management, with Axum and Tower may be v
 
         ```json
         {
-            "id": "string",
+            "id": "int",
             "name": "string",
             "username": "string"
         }
@@ -98,14 +99,14 @@ These endpoints are based on JS session management, with Axum and Tower may be v
         -   401 Unauthorized: Invalid username or password
         -   500 Internal Server Error - An unexpected error occurred on the server
 
--   **GET** `/api/sessions`
+-   **GET** `/api/sessions` (whoami)
 
     -   Request parameters: None
     -   Response:
 
         ```json
         {
-            "id": "string",
+            "id": "int",
             "name": "string",
             "username": "string"
         }
@@ -124,23 +125,51 @@ These endpoints are based on JS session management, with Axum and Tower may be v
         -   401 Unauthorized - No active session found
         -   500 Internal Server Error - An unexpected error occurred on the server
 
-## Groups
+## Users
 
--   **GET** `/api/groups`
+-   **GET** `/api/users`
 
-    - Description: Get all groups that a user belongs to sorted by creation date, can filter with limit and offset
+    -   Description: Get all users filtered by username containing the query string
+    -   Query parameters:
 
-    -   Request parameters:
-        -   limit (optional): integer, number of groups to return
-        -   offset (optional): integer, number of groups to skip
+        -   query: string, filter users by username containing the query string
+        -   limit (optional): integer, number of users to return
+
     -   Response:
 
         ```json
         [
             {
-                "id": "string",
+                "id": "int",
                 "name": "string",
-                "created_at": "string"
+                "username": "string"
+            },
+            ...
+        ]
+        ```
+
+    -   Errors:
+        -   401 Unauthorized - No active session found
+        -   500 Internal Server Error - An unexpected error occurred on the server
+
+## Chats
+
+-   **GET** `/api/chats`
+
+    -   Description: Get all chats that a user belongs to sorted by creation date, can filter with limit and offset
+
+    -   Request parameters:
+        -   limit (optional): integer, number of chats to return
+        -   offset (optional): integer, number of chats to skip
+    -   Response:
+
+        ```json
+        [
+            {
+                "id": "int",
+                "name": "string",
+                "created_at": "string",
+                "is_group": true
             },
             ...
         ]
@@ -151,20 +180,22 @@ These endpoints are based on JS session management, with Axum and Tower may be v
         -   403 Forbidden - User does not have access to the requested resource
         -   500 Internal Server Error - An unexpected error occurred on the server
 
--   **POST** `/api/groups`
-    - Description: Create a new group
+-   **POST** `/api/chats`
+
+    -   Description: Create a new chat
 
     -   Request Body:
         ```json
         {
             "name": "string",
+            "invitees": []
         }
         ```
     -   Response:
 
         ```json
         {
-            "id": "string",
+            "id": "int",
             "name": "string",
             "created_at": "string"
         }
@@ -173,16 +204,129 @@ These endpoints are based on JS session management, with Axum and Tower may be v
     -   Errors:
         -   400 Bad Request - The request body is malformed
         -   401 Unauthorized - No active session found
-        -   403 Forbidden - User does not have access to create a group
+        -   403 Forbidden - User does not have access to create a chat
         -   500 Internal Server Error - An unexpected error occurred on the server
 
--  **POST** `/api/groups/{group_id}/users`
-    - Description: Add a user to a group
+-   **POST** `/api/chats/private`
+
+    -   Description: Create a new private 1-to-1 chat with a user (no invitations). The chat is created immediately and both users are added as members.
 
     -   Request Body:
         ```json
         {
-            "username": "string",
+            "username": "string"
+        }
+        ```
+
+    -   Response:
+        ```json
+        {
+            "id": "string",
+            "name": "string",
+            "created_at": "string",
+            "is_group": false
+        }
+        ```
+
+    -   Errors:
+        -   400 Bad Request - username missing / cannot create private chat with yourself
+        -   401 Unauthorized - No active session found
+        -   404 Not Found - The specified user does not exist
+        -   500 Internal Server Error - An unexpected error occurred on the server
+
+-   **GET** `/api/chats/{chat_id}/members`
+
+    -   Description: Get all members of a chat
+
+    -   Request parameters: None
+    -   Response:
+
+        ```json
+        [
+            {
+                "id": "int",
+                "name": "string",
+                "username": "string"
+            },
+            ...
+        ]
+        ```
+
+    -   Errors:
+        -   401 Unauthorized - No active session found
+        -   403 Forbidden - User does not have access to the requested resource
+        -   404 Not Found - The specified chat does not exist
+        -   500 Internal Server Error - An unexpected error occurred on the server
+
+-  **DELETE** `/api/chats/{chat_id}/members/me`
+
+    -   Description: Leave a group chat. The requesting user is removed from the chat's member list. This operation is only available for group chats — private chats cannot be left.
+    -   Response: 204 No Content
+    -   Errors:
+        -   401 Unauthorized - No active session found
+        -   403 Forbidden - User does not have access to the requested resource or cannot leave a private chat
+        -   404 Not Found - The specified chat does not exist
+        -   500 Internal Server Error - An unexpected error occurred on the server
+
+## Invitations (Requests)
+
+-   **GET** `/api/requests`
+    -   Description: Get all pending invitation requests for the logged-in user
+
+    -   Request parameters: None
+    -   Response:
+
+        ```json
+        [
+            {
+                "id": "int",
+                "from": {
+                    "id": "int",
+                    "name": "string",
+                    "username": "string"
+                },
+                "chat": {
+                    "id": "int",
+                    "name": "string",
+                    "created_at": "string"
+                },
+                "sent_at": "string"
+            },
+            ...
+        ]
+        ```
+
+    -   Errors:
+        -   401 Unauthorized - No active session found
+        -   500 Internal Server Error - An unexpected error occurred on the server
+
+-  **POST** `/api/chats/{chat_id}/requests`
+
+    -   Description: Send an invitation request to a user to join a chat
+
+    -   Request Body:
+        ```json
+        {
+            "to_username": "string" # valutare se usare l'id invece di username
+        }
+        ```
+    -   Response: 201 Created
+
+    -   Errors:
+        -   400 Bad Request - The request body is malformed
+        -   401 Unauthorized - No active session found
+        -   403 Forbidden - User does not have access to the requested resource
+        -   404 Not Found - The specified chat or user does not exist
+        -   500 Internal Server Error - An unexpected error occurred on the server
+
+- **PATCH** `/api/requests/{request_id}`
+  
+    -   Description: Accept or reject an invitation request
+
+    -   Request Body:
+        ```json
+        {
+            "status": "accept" | "reject"
         }
         ```
     -   Response: 204 No Content
@@ -191,28 +335,16 @@ These endpoints are based on JS session management, with Axum and Tower may be v
         -   400 Bad Request - The request body is malformed
         -   401 Unauthorized - No active session found
         -   403 Forbidden - User does not have access to the requested resource
-        -   404 Not Found - The specified group or user does not exist
-        -   500 Internal Server Error - An unexpected error occurred on the server
-
-- **DELETE** `/api/groups/{group_id}/users`
-    - Description: Leave a group
-
-    -   Request parameters: None
-    -   Response: 204 No Content
-
-    -   Errors:
-        -   401 Unauthorized - No active session found
-        -   403 Forbidden - User does not have access to the requested resource
-        -   404 Not Found - The specified group does not exist
+        -   404 Not Found - The specified request does not exist
         -   500 Internal Server Error - An unexpected error occurred on the server
 
 ## Messages
 
-The messages sent/received in a group aren't described here because they are handled by WebSocket API.
+The messages sent/received in a chat aren't described here because they are handled by WebSocket API.
 
--   **GET** `/api/groups/{group_id}/messages`
+-   **GET** `/api/chats/{chat_id}/messages`
 
-    - Description: Get all messages in a group posted after the user joined the group, sorted by sent date, can filter with limit and offset
+    -   Description: Get all messages in a chat posted after the user joined the chat, sorted by sent date, can filter with limit and offset
 
     -   Request parameters:
         -   limit (optional, default = 100 ??): integer, number of messages to return
@@ -222,9 +354,13 @@ The messages sent/received in a group aren't described here because they are han
         ```json
         [
             {
-                "id": "string",
-                "name": "string",   # o `user_id` ??
-                "group_id": "string",
+                "id": "int",
+                "from": {
+                    "id": "int",
+                    "name": "string",
+                    "username": "string"
+                },
+                "chat_id": "int",
                 "content": "string",
                 "sent_at": "string",
             },
@@ -238,5 +374,77 @@ The messages sent/received in a group aren't described here because they are han
         -   500 Internal Server Error - An unexpected error occurred on the server
 
 
+-  **POST** `/api/chats/{chat_id}/messages`
+
+    -  Description: Send a message in a chat, both private or group
+    
+    -  Request Body:
+         ```json
+        {
+            "content": "string"
+        }
+        ```
+
+    -   Errors:
+        -   401 Unauthorized - No active session found
+        -   403 Forbidden - User does not have access to the requested resource
+        -   500 Internal Server Error - An unexpected error occurred on the server
+
+  
 # WebSocket API
-...
+
+- **GET** `/ws/notifications`
+  - Description: Establish a WebSocket connection to receive real-time notifications.
+  - Request parameters: None
+  - Messages:
+    -   Invitation Request Notification:
+        ```json
+        {
+            "type": "invitation.created",
+            "data": {
+                "request_id": "int",
+                "from": {
+                    "id": "int",
+                    "name": "string",
+                    "username": "string"
+                },
+                "chat": {
+                    "id": "int",
+                    "name": "string",
+                    "created_at": "string"
+                },
+                "sent_at": "string"
+            }
+        }
+        ```
+
+- **GET** `/ws/chats/{chat_id}/messages`
+    - Description: Establish a WebSocket connection to send and receive real-time messages in a chat
+    - Request parameters: None
+    - Messages:
+        -   Send Message:
+            ```json
+            {
+                "type": "message.send",
+                "data": {
+                    "content": "string"
+                }
+            }
+            ```
+    -   Receive Message:
+        ```json
+        {
+            "type": "message.received",
+            "data": {
+                "id": "int",
+                "from": {
+                    "id": "int",
+                    "name": "string",
+                    "username": "string"
+                },
+                "chat_id": "int",
+                "content": "string",
+                "sent_at": "string"
+            }
+        }
+        ```

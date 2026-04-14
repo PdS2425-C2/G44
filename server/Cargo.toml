@@ -1,0 +1,28 @@
+[package]
+name = "ruggine_be"
+version = "0.1.0"
+edition = "2024"
+default-run = "ruggine_be"
+
+[dependencies]
+axum = { version = "0.7", features = ["macros", "ws"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+tower = "0.5"
+tower-cookies = "0.10"
+futures = "0.3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+time = { version = "0.3", features = ["macros"] }
+argon2 = "0.5"
+password-hash = "0.5"
+rand = "0.8"
+base64 = "0.22"
+hmac = "0.12"
+sha2 = "0.10"
+dotenvy = "0.15"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
+tower-http = { version = "0.6", features = ["trace"] }
+sysinfo = "0.30"
+chrono = "0.4.44"
+sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio", "macros", "migrate"] }

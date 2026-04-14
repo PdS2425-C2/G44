@@ -1,0 +1,19 @@
+# Editor configs
+.vscode/
+.idea/
+*.sublime-workspace
+
+# System files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Logs
+*.log
+server/cpu_log.txt
+
+# OS trash
+.trash/
+*.tmp
+*~
