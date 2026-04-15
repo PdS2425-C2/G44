@@ -191,13 +191,13 @@ pub async fn post_chats(
     let mut tx = st.pool.begin().await?;
 
     let chat = sqlx::query!(
-        r#"INSERT INTO chat(name, created_at, is_group) VALUES (?, datetime('now'), 1) RETURNING id, name, created_at, is_group"#,
+        r#"INSERT INTO chat(name, created_at, is_group) VALUES (?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 1) RETURNING id, name, created_at, is_group"#,
         req.name
     ).fetch_one(&mut *tx).await?;
 
     // Per chi crea la chat, l'ultima lettura coincide con la creazione
     sqlx::query!(
-        r#"INSERT INTO association(user_id, chat_id, join_at, last_read_at) VALUES (?, ?, datetime('now'), datetime('now'))"#,
+        r#"INSERT INTO association(user_id, chat_id, join_at, last_read_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))"#,
         user_id, chat.id
     ).execute(&mut *tx).await?;
 
@@ -245,13 +245,13 @@ pub async fn post_private_chat(
 
     if existing.is_some() { return Err(ApiError::BadRequest("La chat privata esiste già")); }
 
-    let chat = sqlx::query!("INSERT INTO chat(name, created_at, is_group) VALUES (NULL, datetime('now'), 0) RETURNING id, name, created_at, is_group")
+    let chat = sqlx::query!("INSERT INTO chat(name, created_at, is_group) VALUES (NULL, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 0) RETURNING id, name, created_at, is_group")
         .fetch_one(&mut *tx).await?;
 
-    sqlx::query!("INSERT INTO association(user_id, chat_id, join_at, last_read_at) VALUES (?, ?, datetime('now'), datetime('now'))", user_id, chat.id)
+    sqlx::query!("INSERT INTO association(user_id, chat_id, join_at, last_read_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))", user_id, chat.id)
         .execute(&mut *tx).await?;
 
-    sqlx::query!("INSERT INTO association(user_id, chat_id, join_at) VALUES (?, ?, datetime('now'))", other_id, chat.id)
+    sqlx::query!("INSERT INTO association(user_id, chat_id, join_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))", other_id, chat.id)
         .execute(&mut *tx).await?;
 
     tx.commit().await?;
@@ -308,7 +308,7 @@ pub async fn patch_chat_read(
     let user_id = payload.uid;
 
     let result = sqlx::query!(
-        "UPDATE association SET last_read_at = datetime('now') WHERE user_id = ? AND chat_id = ?",
+        "UPDATE association SET last_read_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE user_id = ? AND chat_id = ?",
         user_id,
         chat_id
     )

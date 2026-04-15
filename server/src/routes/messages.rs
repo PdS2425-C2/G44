@@ -115,7 +115,7 @@ pub async fn post_message(
     // create message
     let message_record = sqlx::query!(
         r#"INSERT INTO message(chat_id, user_id, content, sent_at)
-           VALUES (?, ?, ?, datetime('now'))
+           VALUES (?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
            RETURNING id, chat_id, user_id, content, sent_at"#,
         chat_id,
         user_id,

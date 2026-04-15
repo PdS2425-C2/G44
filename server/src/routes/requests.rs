@@ -100,7 +100,7 @@ pub async fn post_chat_request(
 
     let req = sqlx::query!(
         r#"INSERT INTO request(inviter_id, invitee_id, chat_id, created_at)
-           VALUES (?, ?, ?, datetime('now'))
+           VALUES (?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
            RETURNING id, created_at"#,
         inviter_id,
         invitee.id,
@@ -168,7 +168,7 @@ pub async fn patch_request(
     if body.status == "accept" {
         sqlx::query!(
             r#"INSERT INTO association(user_id, chat_id, join_at, last_read_at)
-               VALUES (?, ?, datetime('now'), datetime('now'))"#,
+               VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))"#,
             user_id,
             req.chat_id
         )
