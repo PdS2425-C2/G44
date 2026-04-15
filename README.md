@@ -1,450 +1,721 @@
-# Entities
+# Ruggine Backend
 
--   user
+## Table of Contents
 
-    | Field         | Type   |
-    | ------------- | ------ |
-    | id            | int    |
-    | name          | string |
-    | username      | string |
-    | password_hash | string |
+- [Ruggine Backend](#ruggine-backend)
+  - [Table of Contents](#table-of-contents)
+  - [Data Models](#data-models)
+    - [user](#user)
+    - [chat](#chat)
+    - [association](#association)
+    - [message](#message)
+    - [request](#request)
+  - [Demo Users](#demo-users)
+  - [API Reference](#api-reference)
+    - [Sessions](#sessions)
+      - [POST /api/sessions](#post-apisessions)
+      - [GET /api/sessions](#get-apisessions)
+      - [DELETE /api/sessions](#delete-apisessions)
+    - [Users](#users)
+      - [GET /api/users](#get-apiusers)
+    - [Chats](#chats)
+      - [GET /api/chats](#get-apichats)
+      - [POST /api/chats](#post-apichats)
+      - [POST /api/chats/private](#post-apichatsprivate)
+      - [GET /api/chats/:chat\_id/participants](#get-apichatschat_idparticipants)
+      - [PATCH /api/chats/:chat\_id/read](#patch-apichatschat_idread)
+      - [DELETE /api/chats/:chat\_id/members/me](#delete-apichatschat_idmembersme)
+    - [Messages](#messages)
+      - [GET /api/chats/:chat\_id/messages](#get-apichatschat_idmessages)
+      - [POST /api/chats/:chat\_id/messages](#post-apichatschat_idmessages)
+    - [Requests](#requests)
+      - [GET /api/requests](#get-apirequests)
+      - [POST /api/chats/:chat\_id/requests](#post-apichatschat_idrequests)
+      - [PATCH /api/requests/:id](#patch-apirequestsid)
+  - [WebSocket](#websocket)
+      - [GET /ws/notifications](#get-wsnotifications)
+  - [Error Reference](#error-reference)
 
--   association
+---
 
-    | Field    | Type           |
-    | -------- | -------------- |
-    | user_id  | int (FK user)  |
-    | chat_id | int (FK chat) |
-    | joined_at  | datetime       |
+## Data Models
 
--   chat
+The following tables describe the database schema as inferred from the queries and DTOs throughout the codebase.
 
-    | Field      | Type     |
-    | ---------- | -------- |
-    | id         | int      |
-    | name       | string   |
-    | created_at | datetime |
-    | is_group | bool |
+---
 
--   message
+### user
 
-    | Field    | Type           |
-    | -------- | -------------- |
-    | id       | int            |
-    | user_id  | int (FK user)  |
-    | chat_id | int (FK chat) |
-    | content  | string         |
-    | sent_at  | datetime       |
+Represents a registered user.
 
--   request
+| Column          | Type    | Nullable | Description                           |
+| --------------- | ------- | -------- | ------------------------------------- |
+| `id`            | integer | No       | Primary key, auto-incremented         |
+| `username`      | text    | No       | Unique login handle                   |
+| `name`          | text    | Yes      | Optional display name shown in the UI |
+| `password_hash` | text    | No       | Hash of the user's password           |
 
-    | Field    | Type           |
-    | -------- | -------------- |
-    | id       | int            |
-    | from     | int (FK user)  |
-    | to       | int (FK user)  |
-    | chat_id | int (FK chat) |
-    | sent_at  | datetime       |
+---
 
-# User Requirements
+### chat
 
--   Login
+Represents either a group chat or a private (one-to-one) conversation.
 
-    After logging in, the user’s landing page must show the list of chat names they belong to, along with a button to create a new chat.
+| Column       | Type    | Nullable | Description                                                        |
+| ------------ | ------- | -------- | ------------------------------------------------------------------ |
+| `id`         | integer | No       | Primary key, auto-incremented                                      |
+| `name`       | text    | Yes      | Display name; always `NULL` for private chats                      |
+| `is_group`   | integer | No       | `1` for group chats, `0` for private chats                         |
+| `created_at` | text    | No       | Creation timestamp in ISO 8601 format (`YYYY-MM-DDTHH:MM:SS.sssZ`) |
 
--   Invitation
+---
 
-    To start a new chat, a user must send an invitation request to other users.
-    The invited users must then accept the request for the chat to be officially created and shown in the landing page.
+### association
 
--   Chat Selection
+Join table that links users to chats. Each row represents a membership and tracks per-user read state.
 
-    When the user clicks on a chat, the application must display all messages posted after the user joined the chat and allow:
+| Column         | Type    | Nullable | Description                                                                                        |
+| -------------- | ------- | -------- | -------------------------------------------------------------------------------------------------- |
+| `user_id`      | integer | No       | Foreign key referencing `user.id`                                                                  |
+| `chat_id`      | integer | No       | Foreign key referencing `chat.id`                                                                  |
+| `join_at`      | text    | No       | Timestamp of when the user joined the chat (ISO 8601)                                              |
+| `last_read_at` | text    | Yes      | Timestamp of the last read action by this user; used to compute `unread_count` in `GET /api/chats` |
 
-    -   sending new messages
-    -   sending invitation to other users to join the chat
+---
 
--   Leave Chat
+### message
 
-    The user must be able to leave a chat.
-    If the user is the last member of the chat, the chat should be deleted.
+Represents a single message sent inside a chat.
 
-# API Rest
+| Column    | Type    | Nullable | Description                                    |
+| --------- | ------- | -------- | ---------------------------------------------- |
+| `id`      | integer | No       | Primary key, auto-incremented                  |
+| `chat_id` | integer | No       | Foreign key referencing `chat.id`              |
+| `user_id` | integer | No       | Foreign key referencing `user.id` (the sender) |
+| `content` | text    | No       | Text body of the message                       |
+| `sent_at` | text    | No       | Send timestamp in ISO 8601 format              |
 
-## Login
+---
 
-These endpoints are based on JS session management, with Axum and Tower may be variate.
+### request
 
--   **POST** `/api/sessions` (login)
+Represents a pending invitation sent by a chat member to a user who is not yet in the chat.
 
-    -   Request Body:
-        ```json
-        {
-            "username": "string",
-            "password": "string"
-        }
-        ```
-    -   Response:
+| Column       | Type    | Nullable | Description                                             |
+| ------------ | ------- | -------- | ------------------------------------------------------- |
+| `id`         | integer | No       | Primary key, auto-incremented                           |
+| `inviter_id` | integer | No       | Foreign key referencing `user.id` (who sent the invite) |
+| `invitee_id` | integer | No       | Foreign key referencing `user.id` (who received it)     |
+| `chat_id`    | integer | No       | Foreign key referencing `chat.id`                       |
+| `created_at` | text    | No       | Timestamp of when the request was created (ISO 8601)    |
 
-        ```json
+A request row is deleted once the invitee accepts or declines via `PATCH /api/requests/:id`.
+
+---
+
+## Demo Users
+
+The following accounts are pre-seeded in the database for testing purposes.
+
+| Name            | Username | Password   |
+| --------------- | -------- | ---------- |
+| Steve Jobs      | `stewy`  | `password` |
+| Alan Turing     | `turro`  | `password` |
+| Bill Gates      | `billy`  | `password` |
+| Edsger Dijkstra | `eddy`   | `password` |
+
+---
+
+## API Reference
+
+### Sessions
+
+---
+
+#### POST /api/sessions
+
+Authenticates a user and issues a session cookie.
+
+- **Request Body:**
+
+    ```json
+    {
+        "username": "string",
+        "password": "string"
+    }
+    ```
+
+- **Response** `200 OK`:
+
+    ```json
+    {
+        "id": "int",
+        "name": "string",
+        "username": "string"
+    }
+    ```
+
+    A `Set-Cookie: sid=<token>` header is also returned.
+
+- **Errors:**
+    - `400 Bad Request` — username or password field is empty
+    - `401 Unauthorized` — user not found or password mismatch
+    - `500 Internal Server Error` — unexpected server error
+
+---
+
+#### GET /api/sessions
+
+Returns the currently authenticated user. Can be used as a "whoami" or session-check endpoint.
+
+- **Auth:** Required (session cookie)
+
+- **Response** `200 OK`:
+
+    ```json
+    {
+        "id": "int",
+        "name": "string",
+        "username": "string"
+    }
+    ```
+
+- **Errors:**
+    - `401 Unauthorized` — missing or invalid session cookie
+    - `500 Internal Server Error` — unexpected server error
+
+---
+
+#### DELETE /api/sessions
+
+Logs out the current user by clearing the session cookie.
+
+- **Auth:** Not strictly required (the cookie is cleared regardless)
+
+- **Response** `204 No Content`
+
+---
+
+### Users
+
+---
+
+#### GET /api/users
+
+Searches for users by username or display name. The authenticated user is excluded from results.
+
+- **Auth:** Required (session cookie)
+
+- **Query Parameters:**
+
+    | Parameter | Type   | Required | Default | Description                                                    |
+    | --------- | ------ | -------- | ------- | -------------------------------------------------------------- |
+    | `query`   | string | No       | `""`    | Substring to match against username or name (case-insensitive) |
+    | `limit`   | int    | No       | `10`    | Maximum number of results to return                            |
+
+- **Response** `200 OK`:
+
+    ```json
+    [
         {
             "id": "int",
             "name": "string",
             "username": "string"
         }
-        ```
+    ]
+    ```
 
-    -   Errors:
-        -   400 Bad Request - The request body is malformed
-        -   401 Unauthorized: Invalid username or password
-        -   500 Internal Server Error - An unexpected error occurred on the server
+- **Errors:**
+    - `401 Unauthorized` — missing or invalid session cookie
+    - `500 Internal Server Error` — unexpected server error
 
--   **GET** `/api/sessions` (whoami)
+---
 
-    -   Request parameters: None
-    -   Response:
+### Chats
 
-        ```json
+---
+
+#### GET /api/chats
+
+Returns all chats the authenticated user belongs to, ordered by creation date (newest first). Each chat includes the last message and the count of unread messages.
+
+- **Auth:** Required (session cookie)
+
+- **Query Parameters:**
+
+    | Parameter | Type | Required | Default | Description             |
+    | --------- | ---- | -------- | ------- | ----------------------- |
+    | `limit`   | int  | No       | `100`   | Maximum number of chats |
+    | `offset`  | int  | No       | `0`     | Number of chats to skip |
+
+- **Response** `200 OK`:
+
+    ```json
+    [
+        {
+            "id": "int",
+            "name": "string | null",
+            "created_at": "string (ISO 8601)",
+            "is_group": "bool",
+            "last_message": {
+                "content": "string",
+                "sent_at": "string (ISO 8601)",
+                "sender_name": "string"
+            },
+            "unread_count": "int"
+        }
+    ]
+    ```
+
+    `name` is `null` for private chats that have no display name configured. `last_message` is `null` if no messages have been sent yet.
+
+- **Errors:**
+    - `401 Unauthorized` — missing or invalid session cookie
+    - `500 Internal Server Error` — unexpected server error
+
+---
+
+#### POST /api/chats
+
+Creates a new group chat. The creator is automatically added as the first member.
+
+- **Auth:** Required (session cookie)
+
+- **Request Body:**
+
+    ```json
+    {
+        "name": "string"
+    }
+    ```
+
+- **Response** `200 OK`:
+
+    ```json
+    {
+        "id": "int",
+        "name": "string",
+        "created_at": "string (ISO 8601)",
+        "is_group": true,
+        "last_message": null,
+        "unread_count": 0
+    }
+    ```
+
+- **Errors:**
+    - `400 Bad Request` — `name` field is empty
+    - `401 Unauthorized` — missing or invalid session cookie
+    - `500 Internal Server Error` — unexpected server error
+
+---
+
+#### POST /api/chats/private
+
+Creates a new private (one-to-one) chat between the authenticated user and another user identified by username. Fails if a private chat between the two users already exists, or if the user attempts to chat with themselves.
+
+- **Auth:** Required (session cookie)
+
+- **Request Body:**
+
+    ```json
+    {
+        "username": "string"
+    }
+    ```
+
+- **Response** `200 OK`:
+
+    ```json
+    {
+        "id": "int",
+        "name": "string",
+        "created_at": "string (ISO 8601)",
+        "is_group": false,
+        "last_message": null,
+        "unread_count": 0
+    }
+    ```
+
+    `name` is set to the other user's display name or username.
+
+- **Errors:**
+    - `400 Bad Request` — `username` field is empty, the chat already exists, or the user tried to chat with themselves
+    - `401 Unauthorized` — missing or invalid session cookie
+    - `404 Not Found` — target username does not exist
+    - `500 Internal Server Error` — unexpected server error
+
+---
+
+#### GET /api/chats/:chat_id/participants
+
+Returns the list of all members currently in a chat. Requires the authenticated user to be a member of the chat.
+
+- **Auth:** Required (session cookie)
+
+- **Path Parameters:**
+
+    | Parameter | Type | Description    |
+    | --------- | ---- | -------------- |
+    | `chat_id` | int  | ID of the chat |
+
+- **Response** `200 OK`:
+
+    ```json
+    [
         {
             "id": "int",
             "name": "string",
             "username": "string"
         }
-        ```
+    ]
+    ```
 
-    -   Errors:
-        -   401 Unauthorized - No active session found
-        -   500 Internal Server Error - An unexpected error occurred on the server
+- **Errors:**
+    - `401 Unauthorized` — missing or invalid session cookie
+    - `403 Forbidden` — user is not a member of this chat
+    - `500 Internal Server Error` — unexpected server error
 
--   **DELETE** `/api/sessions` (logout)
+---
 
-    -   Request parameters: None
-    -   Response: 204 No Content
+#### PATCH /api/chats/:chat_id/read
 
-    -   Errors:
-        -   401 Unauthorized - No active session found
-        -   500 Internal Server Error - An unexpected error occurred on the server
+Marks the chat as fully read for the authenticated user by updating their `last_read_at` timestamp. This resets the unread message counter for this chat.
 
-## Users
+- **Auth:** Required (session cookie)
 
--   **GET** `/api/users`
+- **Path Parameters:**
 
-    -   Description: Get all users filtered by username containing the query string
-    -   Query parameters:
+    | Parameter | Type | Description    |
+    | --------- | ---- | -------------- |
+    | `chat_id` | int  | ID of the chat |
 
-        -   query: string, filter users by username containing the query string
-        -   limit (optional): integer, number of users to return
+- **Response** `200 OK`:
 
-    -   Response:
+    ```json
+    {}
+    ```
 
-        ```json
-        [
-            {
+- **Errors:**
+    - `401 Unauthorized` — missing or invalid session cookie
+    - `403 Forbidden` — user is not a member of this chat
+    - `500 Internal Server Error` — unexpected server error
+
+---
+
+#### DELETE /api/chats/:chat_id/members/me
+
+Removes the authenticated user from a group chat. This operation is not permitted on private chats.
+
+- **Auth:** Required (session cookie)
+
+- **Path Parameters:**
+
+    | Parameter | Type | Description    |
+    | --------- | ---- | -------------- |
+    | `chat_id` | int  | ID of the chat |
+
+- **Response** `204 No Content`
+
+- **Errors:**
+    - `401 Unauthorized` — missing or invalid session cookie
+    - `403 Forbidden` — user is not a member of this chat, or the chat is a private chat
+    - `404 Not Found` — chat does not exist
+    - `500 Internal Server Error` — unexpected server error
+
+---
+
+### Messages
+
+---
+
+#### GET /api/chats/:chat_id/messages
+
+Returns all messages in a chat, ordered chronologically (oldest first). Requires the authenticated user to be a member of the chat.
+
+- **Auth:** Required (session cookie)
+
+- **Path Parameters:**
+
+    | Parameter | Type | Description    |
+    | --------- | ---- | -------------- |
+    | `chat_id` | int  | ID of the chat |
+
+- **Response** `200 OK`:
+
+    ```json
+    [
+        {
+            "id": "int",
+            "from": {
                 "id": "int",
                 "name": "string",
                 "username": "string"
             },
-            ...
-        ]
-        ```
-
-    -   Errors:
-        -   401 Unauthorized - No active session found
-        -   500 Internal Server Error - An unexpected error occurred on the server
-
-## Chats
-
--   **GET** `/api/chats`
-
-    -   Description: Get all chats that a user belongs to sorted by creation date, can filter with limit and offset
-
-    -   Request parameters:
-        -   limit (optional): integer, number of chats to return
-        -   offset (optional): integer, number of chats to skip
-    -   Response:
-
-        ```json
-        [
-            {
-                "id": "int",
-                "name": "string",
-                "created_at": "string",
-                "is_group": true
-            },
-            ...
-        ]
-        ```
-
-    -   Errors:
-        -   401 Unauthorized - No active session found
-        -   403 Forbidden - User does not have access to the requested resource
-        -   500 Internal Server Error - An unexpected error occurred on the server
-
--   **POST** `/api/chats`
-
-    -   Description: Create a new chat
-
-    -   Request Body:
-        ```json
-        {
-            "name": "string",
-            "invitees": []
+            "chat_id": "int",
+            "content": "string",
+            "sent_at": "string (ISO 8601)"
         }
-        ```
-    -   Response:
+    ]
+    ```
 
-        ```json
+- **Errors:**
+    - `401 Unauthorized` — missing or invalid session cookie
+    - `403 Forbidden` — user is not a member of this chat
+    - `500 Internal Server Error` — unexpected server error
+
+---
+
+#### POST /api/chats/:chat_id/messages
+
+Sends a new message in a chat. After the message is persisted, a `message.received` event is pushed via WebSocket to all other members of the chat who have an active connection.
+
+- **Auth:** Required (session cookie)
+
+- **Path Parameters:**
+
+    | Parameter | Type | Description    |
+    | --------- | ---- | -------------- |
+    | `chat_id` | int  | ID of the chat |
+
+- **Request Body:**
+
+    ```json
+    {
+        "content": "string"
+    }
+    ```
+
+- **Response** `201 Created` (empty body)
+
+- **Errors:**
+    - `400 Bad Request` — `content` field is empty
+    - `401 Unauthorized` — missing or invalid session cookie
+    - `403 Forbidden` — user is not a member of this chat
+    - `500 Internal Server Error` — unexpected server error
+
+---
+
+### Requests
+
+Join requests allow a member of a group chat to invite another user. The invited user can then accept or decline.
+
+---
+
+#### GET /api/requests
+
+Returns all pending join requests addressed to the authenticated user.
+
+- **Auth:** Required (session cookie)
+
+- **Response** `200 OK`:
+
+    ```json
+    [
         {
             "id": "int",
-            "name": "string",
-            "created_at": "string"
-        }
-        ```
-
-    -   Errors:
-        -   400 Bad Request - The request body is malformed
-        -   401 Unauthorized - No active session found
-        -   403 Forbidden - User does not have access to create a chat
-        -   500 Internal Server Error - An unexpected error occurred on the server
-
--   **POST** `/api/chats/private`
-
-    -   Description: Create a new private 1-to-1 chat with a user (no invitations). The chat is created immediately and both users are added as members.
-
-    -   Request Body:
-        ```json
-        {
-            "username": "string"
-        }
-        ```
-
-    -   Response:
-        ```json
-        {
-            "id": "string",
-            "name": "string",
-            "created_at": "string",
-            "is_group": false
-        }
-        ```
-
-    -   Errors:
-        -   400 Bad Request - username missing / cannot create private chat with yourself
-        -   401 Unauthorized - No active session found
-        -   404 Not Found - The specified user does not exist
-        -   500 Internal Server Error - An unexpected error occurred on the server
-
--   **GET** `/api/chats/{chat_id}/members`
-
-    -   Description: Get all members of a chat
-
-    -   Request parameters: None
-    -   Response:
-
-        ```json
-        [
-            {
+            "sent_at": "string (ISO 8601)",
+            "from": {
                 "id": "int",
                 "name": "string",
                 "username": "string"
             },
-            ...
-        ]
-        ```
-
-    -   Errors:
-        -   401 Unauthorized - No active session found
-        -   403 Forbidden - User does not have access to the requested resource
-        -   404 Not Found - The specified chat does not exist
-        -   500 Internal Server Error - An unexpected error occurred on the server
-
--  **DELETE** `/api/chats/{chat_id}/members/me`
-
-    -   Description: Leave a group chat. The requesting user is removed from the chat's member list. This operation is only available for group chats — private chats cannot be left.
-    -   Response: 204 No Content
-    -   Errors:
-        -   401 Unauthorized - No active session found
-        -   403 Forbidden - User does not have access to the requested resource or cannot leave a private chat
-        -   404 Not Found - The specified chat does not exist
-        -   500 Internal Server Error - An unexpected error occurred on the server
-
-## Invitations (Requests)
-
--   **GET** `/api/requests`
-    -   Description: Get all pending invitation requests for the logged-in user
-
-    -   Request parameters: None
-    -   Response:
-
-        ```json
-        [
-            {
+            "chat": {
                 "id": "int",
-                "from": {
-                    "id": "int",
-                    "name": "string",
-                    "username": "string"
-                },
-                "chat": {
-                    "id": "int",
-                    "name": "string",
-                    "created_at": "string"
-                },
-                "sent_at": "string"
-            },
-            ...
-        ]
-        ```
-
-    -   Errors:
-        -   401 Unauthorized - No active session found
-        -   500 Internal Server Error - An unexpected error occurred on the server
-
--  **POST** `/api/chats/{chat_id}/requests`
-
-    -   Description: Send an invitation request to a user to join a chat
-
-    -   Request Body:
-        ```json
-        {
-            "to_username": "string" # valutare se usare l'id invece di username
-        }
-        ```
-    -   Response: 201 Created
-
-    -   Errors:
-        -   400 Bad Request - The request body is malformed
-        -   401 Unauthorized - No active session found
-        -   403 Forbidden - User does not have access to the requested resource
-        -   404 Not Found - The specified chat or user does not exist
-        -   500 Internal Server Error - An unexpected error occurred on the server
-
-- **PATCH** `/api/requests/{request_id}`
-  
-    -   Description: Accept or reject an invitation request
-
-    -   Request Body:
-        ```json
-        {
-            "status": "accept" | "reject"
-        }
-        ```
-    -   Response: 204 No Content
-
-    -   Errors:
-        -   400 Bad Request - The request body is malformed
-        -   401 Unauthorized - No active session found
-        -   403 Forbidden - User does not have access to the requested resource
-        -   404 Not Found - The specified request does not exist
-        -   500 Internal Server Error - An unexpected error occurred on the server
-
-## Messages
-
-The messages sent/received in a chat aren't described here because they are handled by WebSocket API.
-
--   **GET** `/api/chats/{chat_id}/messages`
-
-    -   Description: Get all messages in a chat posted after the user joined the chat, sorted by sent date, can filter with limit and offset
-
-    -   Request parameters:
-        -   limit (optional, default = 100 ??): integer, number of messages to return
-        -   offset (optional, defualt = 0): integer, number of messages to skip (I don't know if it's useful)
-    -   Response:
-
-        ```json
-        [
-            {
-                "id": "int",
-                "from": {
-                    "id": "int",
-                    "name": "string",
-                    "username": "string"
-                },
-                "chat_id": "int",
-                "content": "string",
-                "sent_at": "string",
-            },
-            ...
-        ]
-        ```
-
-    -   Errors:
-        -   401 Unauthorized - No active session found
-        -   403 Forbidden - User does not have access to the requested resource
-        -   500 Internal Server Error - An unexpected error occurred on the server
-
-
--  **POST** `/api/chats/{chat_id}/messages`
-
-    -  Description: Send a message in a chat, both private or group
-    
-    -  Request Body:
-         ```json
-        {
-            "content": "string"
-        }
-        ```
-
-    -   Errors:
-        -   401 Unauthorized - No active session found
-        -   403 Forbidden - User does not have access to the requested resource
-        -   500 Internal Server Error - An unexpected error occurred on the server
-
-  
-# WebSocket API
-
-- **GET** `/ws/notifications`
-  - Description: Establish a WebSocket connection to receive real-time notifications.
-  - Request parameters: None
-  - Messages:
-    -   Invitation Request Notification:
-        ```json
-        {
-            "type": "invitation.created",
-            "data": {
-                "request_id": "int",
-                "from": {
-                    "id": "int",
-                    "name": "string",
-                    "username": "string"
-                },
-                "chat": {
-                    "id": "int",
-                    "name": "string",
-                    "created_at": "string"
-                },
-                "sent_at": "string"
+                "name": "string | null",
+                "created_at": "string (ISO 8601)"
             }
         }
-        ```
+    ]
+    ```
 
-- **GET** `/ws/chats/{chat_id}/messages`
-    - Description: Establish a WebSocket connection to send and receive real-time messages in a chat
-    - Request parameters: None
-    - Messages:
-        -   Send Message:
-            ```json
-            {
-                "type": "message.send",
-                "data": {
-                    "content": "string"
-                }
-            }
-            ```
-    -   Receive Message:
-        ```json
-        {
-            "type": "message.received",
-            "data": {
-                "id": "int",
-                "from": {
-                    "id": "int",
-                    "name": "string",
-                    "username": "string"
-                },
-                "chat_id": "int",
-                "content": "string",
-                "sent_at": "string"
-            }
+- **Errors:**
+    - `401 Unauthorized` — missing or invalid session cookie
+    - `500 Internal Server Error` — unexpected server error
+
+---
+
+#### POST /api/chats/:chat_id/requests
+
+Sends a join request for a group chat to a target user. The inviter must be a member of the chat. If the invitee has an active WebSocket connection, an `invitation.created` event is pushed immediately.
+
+- **Auth:** Required (session cookie)
+
+- **Path Parameters:**
+
+    | Parameter | Type | Description    |
+    | --------- | ---- | -------------- |
+    | `chat_id` | int  | ID of the chat |
+
+- **Request Body:**
+
+    ```json
+    {
+        "username": "string"
+    }
+    ```
+
+- **Response** `204 No Content`
+
+- **Errors:**
+    - `401 Unauthorized` — missing or invalid session cookie
+    - `404 Not Found` — target username or chat does not exist
+    - `500 Internal Server Error` — unexpected server error
+
+---
+
+#### PATCH /api/requests/:id
+
+Accepts or declines a pending join request. The authenticated user must be the invitee. The request is deleted regardless of the action taken.
+
+If accepted, the user is added to the chat and a `chat.member_joined` event is pushed via WebSocket to all existing members of the chat.
+
+If declined, the request is simply removed with no further side effects.
+
+- **Auth:** Required (session cookie)
+
+- **Path Parameters:**
+
+    | Parameter | Type | Description       |
+    | --------- | ---- | ----------------- |
+    | `id`      | int  | ID of the request |
+
+- **Request Body:**
+
+    ```json
+    {
+        "status": "accept | decline"
+    }
+    ```
+
+- **Response** `200 OK`:
+
+    If accepted, returns the chat that was joined:
+
+    ```json
+    {
+        "id": "int",
+        "name": "string | null",
+        "created_at": "string (ISO 8601)"
+    }
+    ```
+
+    If declined, returns a placeholder object:
+
+    ```json
+    {
+        "id": -1,
+        "name": null,
+        "created_at": ""
+    }
+    ```
+
+- **Errors:**
+    - `401 Unauthorized` — missing or invalid session cookie
+    - `404 Not Found` — request does not exist or does not belong to the authenticated user
+    - `500 Internal Server Error` — unexpected server error
+
+---
+
+## WebSocket
+
+---
+
+#### GET /ws/notifications
+
+Establishes a persistent WebSocket connection for receiving real-time events. Authentication is performed via the `sid` session cookie at upgrade time. If the cookie is missing or invalid, the connection is closed immediately.
+
+A single user may hold multiple simultaneous connections (e.g. multiple browser tabs). Events are delivered to all active connections for that user.
+
+The server does not send any messages proactively other than the event types below. The client may send a standard WebSocket close frame to terminate the connection gracefully.
+
+**Event Types**
+
+All events share the same envelope:
+
+```json
+{
+    "type": "string",
+    "data": {}
+}
+```
+
+---
+
+**`message.received`**
+
+Pushed to all members of a chat (except the sender) when a new message is posted.
+
+```json
+{
+    "type": "message.received",
+    "data": {
+        "id": "int",
+        "from": {
+            "id": "int",
+            "name": "string",
+            "username": "string"
+        },
+        "chat_id": "int",
+        "content": "string",
+        "sent_at": "string (ISO 8601)"
+    }
+}
+```
+
+---
+
+**`invitation.created`**
+
+Pushed to a user when they receive a new join request.
+
+```json
+{
+    "type": "invitation.created",
+    "data": {
+        "request_id": "int",
+        "from": {
+            "id": "int",
+            "name": "string",
+            "username": "string"
+        },
+        "chat": {
+            "id": "int",
+            "name": "string | null",
+            "created_at": "string (ISO 8601)"
+        },
+        "sent_at": "string (ISO 8601)"
+    }
+}
+```
+
+---
+
+**`chat.member_joined`**
+
+Pushed to all existing members of a chat when a join request is accepted.
+
+```json
+{
+    "type": "chat.member_joined",
+    "data": {
+        "chat_id": "int",
+        "user": {
+            "id": "int",
+            "name": "string",
+            "username": "string"
         }
-        ```
+    }
+}
+```
+
+---
+
+## Error Reference
+
+| Status Code | Meaning                                                                 |
+| ----------- | ----------------------------------------------------------------------- |
+| `400`       | Bad Request — the request body is malformed or a field fails validation |
+| `401`       | Unauthorized — session cookie is missing, invalid, or expired           |
+| `403`       | Forbidden — the user does not have permission to perform this action    |
+| `404`       | Not Found — the requested resource does not exist                       |
+| `500`       | Internal Server Error — an unexpected error occurred on the server      |
