@@ -17,7 +17,7 @@ const formatSeparatorDate = (dateString) => {
     } else if (date.toDateString() === yesterday.toDateString()) {
         return 'Ieri';
     } else {
-        return date.toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' });
+        return date.toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
     }
 };
 
@@ -212,7 +212,7 @@ const ChatRoom = ({ chat, onLeave }) => {
                                                     className={`small ms-auto ${isMine ? 'text-white-50' : 'text-muted'}`} 
                                                     style={{ fontSize: '0.7rem', marginBottom: '-2px' }}
                                                 >
-                                                    {new Date(msg.sent_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
+                                                    {new Date(msg.sent_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
                                                 </span>
                                             </div>
 
