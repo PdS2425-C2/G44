@@ -3,12 +3,6 @@ use axum::{
     response::{IntoResponse, Response},
 };
 
-/*
-   Definizione degli errori API.
-   - Unauthorized: errore 401
-   - BadRequest: errore 400 con messaggio
-   - Internal: errore 500
-*/
 #[derive(Debug)]
 pub enum ApiError {
     Unauthorized,
@@ -18,7 +12,6 @@ pub enum ApiError {
     Forbidden,
 }
 
-// Conversione di ApiError in risposta HTTP
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         match self {
@@ -31,7 +24,6 @@ impl IntoResponse for ApiError {
     }
 }
 
-// Conversione di sqlx::Error in ApiError::Internal
 impl From<sqlx::Error> for ApiError {
     fn from(_: sqlx::Error) -> Self {
         ApiError::Internal

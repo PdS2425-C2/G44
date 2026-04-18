@@ -9,29 +9,18 @@ use axum::{
 };
 use futures::channel::mpsc;
 use futures::{SinkExt, StreamExt};
-use tower_cookies::Cookies;
 
-use crate::{auth, state::AppState};
+use crate::{auth::AuthUser, state::AppState};
 
+/// GET /ws/notifications — upgrade the connection to a WebSocket and register it
+/// in the notification registry so the server can push events to this client.
 pub async fn ws_notifications(
     ws: WebSocketUpgrade,
     State(state): State<AppState>,
-    cookies: Cookies,
+    auth: AuthUser,
 ) -> impl IntoResponse {
-    let sid: String = match cookies.get("sid") {
-        Some(c) => c.value().to_string(),
-        None => return ws.on_upgrade(|socket| async move { drop(socket) }),
-    };
-
-    let payload = match auth::verify_cookie_value(&sid, &state.cookie_secret) {
-        Some(p) => p,
-        None => return ws.on_upgrade(|socket| async move { drop(socket) }),
-    };
-
-    let user_id = payload.uid;
     let conn_id = state.next_conn_id.fetch_add(1, Ordering::Relaxed);
-
-    ws.on_upgrade(move |socket| handle_notifications_socket(socket, state, user_id, conn_id))
+    ws.on_upgrade(move |socket| handle_notifications_socket(socket, state, auth.user_id, conn_id))
 }
 
 async fn handle_notifications_socket(
@@ -42,10 +31,9 @@ async fn handle_notifications_socket(
 ) {
     let (mut ws_sender, mut ws_receiver) = socket.split();
 
-    // canale interno (tx per chi invia notifiche, rx collegato al websocket)
+    // Internal channel: other tasks write to `tx`; this task drains `rx` into the WebSocket.
     let (tx, mut rx) = mpsc::unbounded::<Message>();
 
-    // registra il sender nel registry
     {
         let mut peers = state.notification_peers.write().await;
         peers
@@ -54,8 +42,8 @@ async fn handle_notifications_socket(
             .insert(conn_id, tx);
     }
 
-    // Task 1: inoltra i messaggi dal canale interno al WebSocket
-    let forward_to_ws = tokio::spawn(async move {
+    // Forward messages from the internal channel to the WebSocket.
+    let forward = tokio::spawn(async move {
         while let Some(msg) = rx.next().await {
             if ws_sender.send(msg).await.is_err() {
                 break;
@@ -63,15 +51,15 @@ async fn handle_notifications_socket(
         }
     });
 
-    // Task 2: leggi eventuali messaggi dal client (qui li ignoriamo)
+    // Drain incoming frames; abort on close.
     while let Some(Ok(msg)) = ws_receiver.next().await {
         if let Message::Close(_) = msg {
             break;
         }
     }
-    forward_to_ws.abort();
+    forward.abort();
 
-    // Task 3: rimuovi il sender dal registry
+    // Deregister this connection and clean up empty user entries.
     {
         let mut peers = state.notification_peers.write().await;
         if let Some(conns) = peers.get_mut(&user_id) {

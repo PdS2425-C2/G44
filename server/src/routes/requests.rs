@@ -5,41 +5,37 @@ use axum::{
     http::StatusCode,
 };
 use serde_json::json;
-use tower_cookies::Cookies;
 
 use crate::{
-    auth::verify_cookie_value,
+    auth::AuthUser,
     error::ApiError,
     routes::dto::{ChatPreviewDto, PatchReq, PostRequestBody, RequestDto, UserDto},
     state::AppState,
 };
 
+/// GET /api/requests — return all pending invitations addressed to the caller.
 pub async fn get_requests(
     State(st): State<AppState>,
-    cookies: Cookies,
+    auth: AuthUser,
 ) -> Result<Json<Vec<RequestDto>>, ApiError> {
-    let sid = cookies.get("sid").ok_or(ApiError::Unauthorized)?;
-    let payload =
-        verify_cookie_value(sid.value(), &st.cookie_secret).ok_or(ApiError::Unauthorized)?;
-
     let rows = sqlx::query!(
         r#"
         SELECT
-          r.id,
-          r.created_at AS sent_at,
-          u.id AS from_id,
-          u.name AS from_name,
-          u.username AS from_username,
-          c.id AS chat_id,
-          c.name AS chat_name,
-          c.created_at AS chat_created
+            r.id,
+            r.created_at AS sent_at,
+            u.id         AS from_id,
+            u.name       AS from_name,
+            u.username   AS from_username,
+            c.id         AS chat_id,
+            c.name       AS chat_name,
+            c.created_at AS chat_created
         FROM request r
         JOIN user u ON r.inviter_id = u.id
-        JOIN chat c ON r.chat_id = c.id
+        JOIN chat c ON r.chat_id    = c.id
         WHERE r.invitee_id = ?
         ORDER BY r.created_at DESC
         "#,
-        payload.uid
+        auth.user_id
     )
     .fetch_all(&st.pool)
     .await?;
@@ -64,17 +60,14 @@ pub async fn get_requests(
     ))
 }
 
+/// POST /api/chats/:chat_id/requests — invite a user to a group chat.
+/// The invitee receives a real-time WebSocket notification.
 pub async fn post_chat_request(
     State(st): State<AppState>,
-    cookies: Cookies,
+    auth: AuthUser,
     Path(chat_id): Path<i64>,
     Json(body): Json<PostRequestBody>,
 ) -> Result<StatusCode, ApiError> {
-    let sid = cookies.get("sid").ok_or(ApiError::Unauthorized)?;
-    let payload =
-        verify_cookie_value(sid.value(), &st.cookie_secret).ok_or(ApiError::Unauthorized)?;
-    let inviter_id = payload.uid;
-
     let mut tx = st.pool.begin().await?;
 
     let invitee = sqlx::query!(
@@ -83,6 +76,9 @@ pub async fn post_chat_request(
     )
     .fetch_one(&mut *tx)
     .await?;
+
+    // Extract early to avoid an unwrap after the transaction is consumed.
+    let invitee_id = invitee.id.ok_or(ApiError::Internal)?;
 
     let chat = sqlx::query!(
         r#"SELECT id, name, created_at FROM chat WHERE id = ?"#,
@@ -93,7 +89,7 @@ pub async fn post_chat_request(
 
     let inviter = sqlx::query!(
         r#"SELECT id, name, username FROM user WHERE id = ?"#,
-        inviter_id
+        auth.user_id
     )
     .fetch_one(&mut *tx)
     .await?;
@@ -102,8 +98,8 @@ pub async fn post_chat_request(
         r#"INSERT INTO request(inviter_id, invitee_id, chat_id, created_at)
            VALUES (?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
            RETURNING id, created_at"#,
-        inviter_id,
-        invitee.id,
+        auth.user_id,
+        invitee_id,
         chat_id
     )
     .fetch_one(&mut *tx)
@@ -111,7 +107,7 @@ pub async fn post_chat_request(
 
     tx.commit().await?;
 
-    let notif = json!({
+    let payload = json!({
         "type": "invitation.created",
         "data": {
             "request_id": req.id,
@@ -129,37 +125,26 @@ pub async fn post_chat_request(
         }
     });
 
-    let msg = Message::Text(notif.to_string());
-
-    {
-        let peers = st.notification_peers.read().await;
-        if let Some(senders) = peers.get(&invitee.id.unwrap()) {
-            for tx in senders.values() {
-                let _ = tx.unbounded_send(msg.clone());
-            }
-        }
-    }
+    st.notify_user(invitee_id, Message::Text(payload.to_string()))
+        .await;
 
     Ok(StatusCode::NO_CONTENT)
 }
 
+/// PATCH /api/requests/:id — accept or decline a group invitation.
+/// On acceptance, all existing chat members are notified via WebSocket.
 pub async fn patch_request(
     State(st): State<AppState>,
-    cookies: Cookies,
+    auth: AuthUser,
     Path(request_id): Path<i64>,
     Json(body): Json<PatchReq>,
 ) -> Result<Json<ChatPreviewDto>, ApiError> {
-    let sid = cookies.get("sid").ok_or(ApiError::Unauthorized)?;
-    let payload =
-        verify_cookie_value(sid.value(), &st.cookie_secret).ok_or(ApiError::Unauthorized)?;
-    let user_id = payload.uid;
-
     let mut tx = st.pool.begin().await?;
 
     let req = sqlx::query!(
         r#"SELECT chat_id FROM request WHERE id = ? AND invitee_id = ?"#,
         request_id,
-        user_id
+        auth.user_id
     )
     .fetch_optional(&mut *tx)
     .await?
@@ -169,7 +154,7 @@ pub async fn patch_request(
         sqlx::query!(
             r#"INSERT INTO association(user_id, chat_id, join_at, last_read_at)
                VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))"#,
-            user_id,
+            auth.user_id,
             req.chat_id
         )
         .execute(&mut *tx)
@@ -184,14 +169,15 @@ pub async fn patch_request(
 
         let joined_user = sqlx::query!(
             r#"SELECT id, name, username FROM user WHERE id = ?"#,
-            user_id
+            auth.user_id
         )
         .fetch_one(&mut *tx)
         .await?;
 
         let other_members = sqlx::query!(
             r#"SELECT user_id FROM association WHERE chat_id = ? AND user_id != ?"#,
-            req.chat_id, user_id
+            req.chat_id,
+            auth.user_id
         )
         .fetch_all(&mut *tx)
         .await?;
@@ -202,7 +188,7 @@ pub async fn patch_request(
 
         tx.commit().await?;
 
-        let notif = json!({
+        let payload = json!({
             "type": "chat.member_joined",
             "data": {
                 "chat_id": req.chat_id,
@@ -213,18 +199,10 @@ pub async fn patch_request(
                 }
             }
         });
-        let msg = Message::Text(notif.to_string());
 
-        {
-            let peers = st.notification_peers.read().await;
-            for member in other_members {
-                if let Some(senders) = peers.get(&member.user_id) {
-                    for tx in senders.values() {
-                        let _ = tx.unbounded_send(msg.clone());
-                    }
-                }
-            }
-        }
+        let member_ids: Vec<i64> = other_members.into_iter().map(|m| m.user_id).collect();
+        st.notify_users(&member_ids, Message::Text(payload.to_string()))
+            .await;
 
         return Ok(Json(ChatPreviewDto {
             id: chat.id,
@@ -233,14 +211,16 @@ pub async fn patch_request(
         }));
     }
 
+    // Decline: simply remove the request.
     sqlx::query!(r#"DELETE FROM request WHERE id = ?"#, request_id)
         .execute(&mut *tx)
         .await?;
 
     tx.commit().await?;
+
     Ok(Json(ChatPreviewDto {
         id: -1,
         name: None,
-        created_at: "".to_string(),
+        created_at: String::new(),
     }))
 }
