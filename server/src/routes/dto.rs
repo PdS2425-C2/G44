@@ -7,6 +7,13 @@ pub struct UserDto {
     pub username: String,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+pub struct RegisterReq {
+    pub name: String,
+    pub username: String,
+    pub password: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LastMessageDto {
     pub content: String,

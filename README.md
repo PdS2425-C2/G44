@@ -18,6 +18,7 @@
       - [DELETE /api/sessions](#delete-apisessions)
     - [Users](#users)
       - [GET /api/users](#get-apiusers)
+      - [POST /api/users](#post-apiusers)
     - [Chats](#chats)
       - [GET /api/chats](#get-apichats)
       - [POST /api/chats](#post-apichats)
@@ -229,6 +230,40 @@ Searches for users by username or display name. The authenticated user is exclud
     - `401 Unauthorized` — missing or invalid session cookie
     - `500 Internal Server Error` — unexpected server error
 
+---
+
+#### POST /api/users
+
+Registers a new user and immediately creates a session cookie.
+
+- **Auth:** Not required
+
+- **Request Body:**
+
+    ```json
+    {
+        "name": "string",
+        "username": "string",
+        "password": "string"
+    }
+    ```
+
+- **Response** `201 Created`:
+
+    ```json
+    {
+        "id": "int",
+        "name": "string",
+        "username": "string"
+    }
+    ```
+
+    A `Set-Cookie: sid=<token>` header is also returned.
+
+- **Errors:**
+    - `400 Bad Request` — name, username, or password is empty; username too short; password too short; or username already exists
+    - `500 Internal Server Error` — unexpected server error
+  
 ---
 
 ### Chats

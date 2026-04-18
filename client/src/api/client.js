@@ -33,6 +33,12 @@ const API = {
       method: 'POST',
       body: JSON.stringify(credentials),
     }),
+  
+  register: (userData) =>
+    jsonFetch(`${BASE_URL}/users`, {
+      method: 'POST',
+      body: JSON.stringify(userData),
+    }),
 
   getUserInfo: () =>
     jsonFetch(`${BASE_URL}/sessions`),

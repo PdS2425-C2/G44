@@ -64,7 +64,7 @@ async fn main() {
         .route("/api/sessions", post(routes::sessions::post_sessions))
         .route("/api/sessions", get(routes::sessions::get_sessions))
         .route("/api/sessions", delete(routes::sessions::delete_sessions))
-        .route("/api/users", get(routes::users::get_users))
+        .route("/api/users", get(routes::users::get_users).post(routes::users::post_users))        
         .route("/api/chats", get(routes::chats::get_chats))
         .route("/api/chats", post(routes::chats::post_chats))
         .route("/api/chats/private", post(routes::chats::post_private_chat))

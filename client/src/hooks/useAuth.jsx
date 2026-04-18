@@ -7,7 +7,6 @@ export const AuthProvider = ({ children }) => {
   const [loggedIn, setLoggedIn] = useState(false);
   const [user, setUser] = useState(null);
 
-  // Verify existing session on mount — avoids a redirect flash if the user is already logged in
   useEffect(() => {
     const checkAuth = async () => {
       try {
@@ -24,9 +23,17 @@ export const AuthProvider = ({ children }) => {
 
   const logIn = async (credentials) => {
     const u = await API.logIn(credentials);
-    console.log('Logged in user:', u);
     setLoggedIn(true);
     setUser(u);
+    return u;
+  };
+
+  const register = async (userData) => {
+    const u = await API.register(userData);
+
+    setLoggedIn(true);
+    setUser(u);
+
     return u;
   };
 
@@ -37,7 +44,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ loggedIn, user, logIn, logOut }}>
+    <AuthContext.Provider value={{ loggedIn, user, logIn, register, logOut }}>
       {children}
     </AuthContext.Provider>
   );
