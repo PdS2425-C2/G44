@@ -32,8 +32,8 @@ const NavHeader = ({
                 <Dropdown.Toggle variant="outline-light" id="dropdown-invitations">
                   <i className="bi bi-bell"></i>{' '}
                   {invitations.length > 0 && (
-                    <span 
-                      className="badge rounded-pill ms-1" 
+                    <span
+                      className="badge rounded-pill ms-1"
                       style={{ backgroundColor: '#e65a41', color: 'white' }}
                     >
                       {invitations.length}
@@ -41,17 +41,17 @@ const NavHeader = ({
                   )}
                 </Dropdown.Toggle>
 
-                <Dropdown.Menu 
-                  className="shadow rounded-4 border-0 mt-2" 
+                <Dropdown.Menu
+                  className="shadow rounded-4 border-0 mt-2"
                   style={{ minWidth: '280px', padding: '0.5rem 0' }}
                 >
-                  <Dropdown.Header 
-                    className="fw-bold text-uppercase mb-1" 
+                  <Dropdown.Header
+                    className="fw-bold text-uppercase mb-1"
                     style={{ fontSize: '0.8rem', letterSpacing: '0.5px' }}
                   >
                     Inviti in sospeso
                   </Dropdown.Header>
-                  
+
                   {invitations.length === 0 ? (
                     <Dropdown.ItemText className="text-center text-muted py-4">
                       <i className="bi bi-inbox fs-3 d-block mb-2 opacity-50"></i>

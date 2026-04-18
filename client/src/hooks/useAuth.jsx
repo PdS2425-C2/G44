@@ -7,7 +7,7 @@ export const AuthProvider = ({ children }) => {
   const [loggedIn, setLoggedIn] = useState(false);
   const [user, setUser] = useState(null);
 
-  // checkAuth iniziale
+  // Verify existing session on mount — avoids a redirect flash if the user is already logged in
   useEffect(() => {
     const checkAuth = async () => {
       try {

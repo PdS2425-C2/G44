@@ -36,28 +36,28 @@ const LeaveGroupModal = ({ show, chat, onHide, onLeft }) => {
         >
           <i className="bi bi-door-open fs-1"></i>
         </div>
-        
+
         <h4 className="fw-bold mb-3">Vuoi uscire dal gruppo?</h4>
-        
+
         {error && <Alert variant="danger" className="text-center rounded-3">{error}</Alert>}
 
         <p className="text-muted fs-5 mb-0">
           Stai per abbandonare <strong className="text-dark">{chat.name}</strong>. Non potrai più vedere i messaggi del gruppo.
         </p>
       </Modal.Body>
-      
+
       <Modal.Footer className="border-0 justify-content-center pb-4 pt-0 gap-2">
-        <Button 
-          variant="light" 
-          onClick={handleHide} 
+        <Button
+          variant="light"
+          onClick={handleHide}
           disabled={loading}
           className="rounded-pill px-4 fw-semibold border"
         >
           Annulla
         </Button>
-        <Button 
+        <Button
           variant="danger"
-          onClick={handleLeave} 
+          onClick={handleLeave}
           disabled={loading}
           className="rounded-pill px-4 fw-semibold border-0"
         >

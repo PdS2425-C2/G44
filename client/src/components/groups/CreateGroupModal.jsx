@@ -23,6 +23,7 @@ const CreateGroupModal = ({ show, onHide, onCreated }) => {
       const group = await API.createGroup(name);
       const usernames = invitees.map((u) => u.username);
 
+      // Send invitations sequentially so each request_id is independent
       for (const username of usernames) {
         await API.createRequest(group.id, username);
       }
@@ -30,7 +31,6 @@ const CreateGroupModal = ({ show, onHide, onCreated }) => {
       onCreated?.(group);
       onHide?.();
 
-      // reset
       setName('');
       setInvitees([]);
     } catch (err) {
@@ -70,10 +70,10 @@ const CreateGroupModal = ({ show, onHide, onCreated }) => {
           <Button variant="secondary" onClick={onHide} disabled={loading}>
             Annulla
           </Button>
-          <Button 
-            type="submit" 
-            className="text-white border-0" 
-            style={{ backgroundColor: '#e65a41' }} 
+          <Button
+            type="submit"
+            className="text-white border-0"
+            style={{ backgroundColor: '#e65a41' }}
             disabled={loading}
           >
             {loading ? 'Creazione...' : 'Crea gruppo'}

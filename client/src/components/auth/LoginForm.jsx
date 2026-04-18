@@ -35,7 +35,7 @@ const LoginForm = ({ onLogin }) => {
   return (
     <Container>
       <div className="d-flex flex-column align-items-center justify-content-center">
-        
+
         <div className="text-center mb-4">
           <h1 className="fw-bold mb-1" style={{ color: '#e65a41', fontSize: '3rem' }}>
             🦀 Ruggine
@@ -46,7 +46,7 @@ const LoginForm = ({ onLogin }) => {
         <div style={{ width: '100%', maxWidth: '420px' }}>
           <Card className="border-0 shadow-sm rounded-4">
             <Card.Body className="p-4 p-sm-5">
-              
+
               {error && (
                 <Alert variant="danger" className="text-center rounded-3">
                   {error}
@@ -54,7 +54,7 @@ const LoginForm = ({ onLogin }) => {
               )}
 
               <Form onSubmit={handleSubmit}>
-                
+
                 <FloatingLabel
                   controlId="loginUsername"
                   label="Username"
@@ -87,26 +87,26 @@ const LoginForm = ({ onLogin }) => {
                   />
                 </FloatingLabel>
 
-                <Button 
-                  type="submit" 
-                  className="w-100 rounded-pill py-2 fw-semibold fs-5 border-0 text-white" 
+                <Button
+                  type="submit"
+                  className="w-100 rounded-pill py-2 fw-semibold fs-5 border-0 text-white"
                   disabled={loading}
                   style={{ transition: 'all 0.2s', backgroundColor: '#e65a41' }}
                 >
                   {loading ? (
                     <>
-                      <Spinner 
-                        as="span" 
-                        animation="border" 
-                        size="sm" 
-                        role="status" 
-                        aria-hidden="true" 
-                        className="me-2" 
+                      <Spinner
+                        as="span"
+                        animation="border"
+                        size="sm"
+                        role="status"
+                        aria-hidden="true"
+                        className="me-2"
                       />
                       Accesso...
                     </>
                   ) : (
-                        'Entra'
+                    'Entra'
                   )}
                 </Button>
 

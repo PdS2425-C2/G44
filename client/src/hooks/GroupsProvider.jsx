@@ -4,7 +4,7 @@ import { useGroupsState } from '../hooks/useGroups';
 const GroupsContext = createContext(null);
 
 export const GroupsProvider = ({ children }) => {
-  const value = useGroupsState(); // contiene { groups, loadingGroups, groupsError, addGroup }
+  const value = useGroupsState();
   return (
     <GroupsContext.Provider value={value}>
       {children}

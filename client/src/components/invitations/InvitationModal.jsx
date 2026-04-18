@@ -33,26 +33,26 @@ const InvitationModal = ({ show, invitation, onAccept, onReject, onHide }) => {
         >
           <i className="bi bi-envelope-paper-heart fs-1"></i>
         </div>
-        
+
         <h4 className="fw-bold mb-3">Nuovo invito!</h4>
-        
+
         <p className="text-muted fs-5 mb-0">
           <strong className="text-dark">{invitation.from.username}</strong> ti ha invitato nel gruppo{' '}
           <strong className="text-dark">{invitation.chat.name}</strong>.
         </p>
       </Modal.Body>
-      
+
       <Modal.Footer className="border-0 justify-content-center pb-4 pt-0 gap-2">
-        <Button 
-          variant="light" 
-          onClick={handleReject} 
+        <Button
+          variant="light"
+          onClick={handleReject}
           disabled={loading}
           className="rounded-pill px-4 fw-semibold border"
         >
           Rifiuta
         </Button>
-        <Button 
-          onClick={handleAccept} 
+        <Button
+          onClick={handleAccept}
           disabled={loading}
           className="rounded-pill px-4 fw-semibold text-white border-0"
           style={{ backgroundColor: '#e65a41' }}

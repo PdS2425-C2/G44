@@ -53,7 +53,7 @@ const UserSelect = ({ value = [], onChange, onSelect }) => {
 
   return (
     <Form.Group className="position-relative">
-      
+
       {!onSelect && value.length > 0 && (
         <div className="mb-2">
           {value.map(u => (

@@ -19,20 +19,21 @@ const AppRoutes = () => {
   } = useNotifications();
   const { refreshGroups } = useGroups();
 
+  // After accepting, refresh the groups list so the newly joined chat appears in the sidebar
   const handleAcceptInvite = async () => {
     if (!selectedInvite) return;
-    
+
     await API.patchRequest(selectedInvite.id, 'accept');
-    
+
     await refreshGroups();
-    
+
     removeInvitation(selectedInvite.id);
     setSelectedInvite(null);
   };
 
   const handleRejectInvite = async () => {
     if (!selectedInvite) return;
-    
+
     await API.patchRequest(selectedInvite.id, 'reject');
     removeInvitation(selectedInvite.id);
     setSelectedInvite(null);
@@ -68,6 +69,7 @@ const AppRoutes = () => {
         />
       </Routes>
 
+      {/* Rendered outside <Routes> so it overlays any page without unmounting on navigation */}
       <InvitationModal
         show={!!selectedInvite}
         invitation={selectedInvite}

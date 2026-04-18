@@ -6,13 +6,15 @@ const NotificationsContext = createContext(null);
 
 export const NotificationsProvider = ({ children }) => {
   const { loggedIn } = useAuth();
-  
+
   const [invitations, setInvitations] = useState([]);
   const [selectedInvite, setSelectedInvite] = useState(null);
 
+  // Shared WebSocket events consumed by other hooks (e.g. useGroups, ChatRoom)
   const [incomingMessage, setIncomingMessage] = useState(null);
   const [newMemberEvent, setNewMemberEvent] = useState(null);
 
+  // Load any pending invitations when the user logs in
   useEffect(() => {
     if (!loggedIn) {
       setInvitations([]);
@@ -25,10 +27,12 @@ export const NotificationsProvider = ({ children }) => {
       .catch(() => setInvitations([]));
   }, [loggedIn]);
 
+  // Open a single persistent WebSocket connection for all real-time notifications.
+  // The connection is torn down on logout or component unmount.
   useEffect(() => {
     if (!loggedIn) return;
 
-    const socket = new WebSocket('ws://localhost:3000/ws/notifications'); 
+    const socket = new WebSocket('ws://localhost:3000/ws/notifications');
 
     socket.onopen = () => console.log('WS notifications connected');
 
@@ -36,7 +40,8 @@ export const NotificationsProvider = ({ children }) => {
       try {
         const msg = JSON.parse(event.data);
         console.log('WS message received', msg);
-        
+
+        // Route each event type to the appropriate state slice
         if (msg.type === 'invitation.created') {
           const invite = {
             id: msg.data.request_id,
@@ -53,12 +58,12 @@ export const NotificationsProvider = ({ children }) => {
             },
           };
           setInvitations((prev) => [invite, ...prev]);
-        } 
+        }
         else if (msg.type === 'message.received') {
-            setIncomingMessage(msg.data);
+          setIncomingMessage(msg.data);
         }
         else if (msg.type === 'chat.member_joined') {
-            setNewMemberEvent(msg.data);
+          setNewMemberEvent(msg.data);
         }
       } catch (e) {
         console.error('Error parsing WS message', e);

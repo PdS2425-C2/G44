@@ -25,9 +25,9 @@ const ChatRoom = ({ chat, onLeave }) => {
     const { user } = useAuth();
     const { incomingMessage, newMemberEvent } = useNotifications();
     const { updateGroupActivity, resetUnreadCount, removeGroup } = useGroups();
-    
+
     const [messages, setMessages] = useState([]);
-    const [participants, setParticipants] = useState([]); 
+    const [participants, setParticipants] = useState([]);
     const [newMessage, setNewMessage] = useState('');
     const [showLeaveModal, setShowLeaveModal] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -40,6 +40,7 @@ const ChatRoom = ({ chat, onLeave }) => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
 
+    // Fetch messages and participants in parallel to minimise loading time
     const fetchMessages = async () => {
         if (!chat?.id) return;
 
@@ -70,6 +71,8 @@ const ChatRoom = ({ chat, onLeave }) => {
         setNewMessage('');
         setSending(true);
 
+        // Optimistic update: append a temporary message so the UI feels instant.
+        // The server-confirmed version will arrive via WebSocket and be deduplicated below.
         const tempMessage = {
             id: `temp-${Date.now()}`,
             from: { id: user?.id, name: user?.name, username: user?.username },
@@ -79,7 +82,8 @@ const ChatRoom = ({ chat, onLeave }) => {
         };
 
         setMessages((prev) => [...prev, tempMessage]);
-        
+
+        // Mark as read immediately since the sender is already viewing the chat
         updateGroupActivity(chat.id, tempMessage, true);
 
         try {
@@ -92,19 +96,23 @@ const ChatRoom = ({ chat, onLeave }) => {
         }
     };
 
+    // Scroll to the latest message and clear the unread badge whenever the message list grows
     useEffect(() => {
         scrollToBottom();
 
         if (chat?.id) {
             resetUnreadCount(chat.id);
-            API.markAsRead(chat.id).catch(() => {});
+            API.markAsRead(chat.id).catch(() => { });
         }
     }, [messages.length, chat?.id, resetUnreadCount]);
 
+    // Re-fetch the full message history whenever the active chat changes
     useEffect(() => {
         fetchMessages();
     }, [chat?.id]);
 
+    // Append incoming WebSocket messages, guarding against duplicates that may
+    // arise when the sender's optimistic update and the server echo overlap
     useEffect(() => {
         if (!incomingMessage || incomingMessage.chat_id !== chat?.id) return;
 
@@ -115,6 +123,7 @@ const ChatRoom = ({ chat, onLeave }) => {
         });
     }, [incomingMessage, chat?.id]);
 
+    // Keep the participants list in sync when someone joins while the room is open
     useEffect(() => {
         if (!newMemberEvent || newMemberEvent.chat_id !== chat?.id) return;
 
@@ -187,9 +196,9 @@ const ChatRoom = ({ chat, onLeave }) => {
                                         </div>
                                     )}
                                     <div className={`d-flex mb-3 ${isMine ? 'justify-content-end' : 'justify-content-start'}`}>
-                                        <div 
+                                        <div
                                             className={`px-3 py-2 shadow-sm ${isMine ? 'text-white' : 'bg-white text-dark'}`}
-                                            style={{ 
+                                            style={{
                                                 maxWidth: '80%',
                                                 borderTopLeftRadius: '1.5rem',
                                                 borderTopRightRadius: '1.5rem',
@@ -203,13 +212,13 @@ const ChatRoom = ({ chat, onLeave }) => {
                                                     {msg.from.name || msg.from.username}
                                                 </div>
                                             )}
-                                            
+
                                             <div className="d-flex align-items-end flex-wrap">
                                                 <span style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', marginRight: '1rem' }}>
                                                     {msg.content}
                                                 </span>
-                                                <span 
-                                                    className={`small ms-auto ${isMine ? 'text-white-50' : 'text-muted'}`} 
+                                                <span
+                                                    className={`small ms-auto ${isMine ? 'text-white-50' : 'text-muted'}`}
                                                     style={{ fontSize: '0.7rem', marginBottom: '-2px' }}
                                                 >
                                                     {new Date(msg.sent_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
@@ -236,8 +245,8 @@ const ChatRoom = ({ chat, onLeave }) => {
                         onChange={(e) => setNewMessage(e.target.value)}
                         disabled={loading}
                     />
-                    <Button 
-                        type="submit" 
+                    <Button
+                        type="submit"
                         className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 text-white border-0"
                         style={{ width: '45px', height: '45px', backgroundColor: '#e65a41' }}
                         disabled={!newMessage.trim() || sending || loading}
