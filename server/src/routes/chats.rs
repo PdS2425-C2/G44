@@ -1,8 +1,9 @@
 use axum::{
     Json,
-    extract::{Path, Query, State},
+    extract::{Path, Query, State, ws::Message},
     http::StatusCode,
 };
+use serde_json::json;
 use sqlx::SqlitePool;
 use std::collections::HashMap;
 
@@ -401,6 +402,26 @@ pub async fn leave_chat(
     )
     .execute(&st.pool)
     .await?;
+
+    let payload = json!({
+        "type": "chat.member_left",
+        "data": {
+            "chat_id": chat_id,
+            "user_id": auth.user_id,
+        }
+    });
+
+    let others = sqlx::query!(
+        "SELECT user_id FROM association WHERE chat_id = ?",
+        chat_id
+    )
+    .fetch_all(&st.pool)
+    .await?;
+
+    let recipient_ids: Vec<i64> = others.into_iter().map(|r| r.user_id).collect();
+
+    st.notify_users(&recipient_ids, Message::Text(payload.to_string()))
+    .await;
 
     Ok(StatusCode::NO_CONTENT)
 }

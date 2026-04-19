@@ -742,7 +742,19 @@ Pushed to all existing members of a chat when a join request is accepted.
     }
 }
 ```
+**`chat.member_left`**
 
+Pushed to all existing members of a chat when a user left the chat.
+
+```json
+{
+    "type": "chat.member_left",
+    "data": {
+        "chat_id": "int",
+        "user_id": "int"
+    }
+}
+```
 ---
 
 ## Error Reference

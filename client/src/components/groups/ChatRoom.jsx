@@ -23,7 +23,7 @@ const formatSeparatorDate = (dateString) => {
 
 const ChatRoom = ({ chat, onLeave }) => {
     const { user } = useAuth();
-    const { incomingMessage, newMemberEvent } = useNotifications();
+    const { incomingMessage, newMemberEvent, memberLeftEvent } = useNotifications();
     const { updateGroupActivity, resetUnreadCount, removeGroup } = useGroups();
 
     const [messages, setMessages] = useState([]);
@@ -134,6 +134,16 @@ const ChatRoom = ({ chat, onLeave }) => {
         });
     }, [newMemberEvent, chat?.id]);
 
+    // Remove the member from the participants list when they leave while the room is open
+    useEffect(() => {
+    if (!memberLeftEvent || memberLeftEvent.chat_id !== chat?.id) return;
+
+    setParticipants((prev) => {
+        const exists = prev.some((p) => p.id === memberLeftEvent.user_id);
+        if (!exists) return prev;
+        return prev.filter((p) => p.id !== memberLeftEvent.user_id);
+    });
+}, [memberLeftEvent, chat?.id]);
 
     return (
         <div className="d-flex flex-column h-100 w-100 bg-white">

@@ -13,6 +13,7 @@ export const NotificationsProvider = ({ children }) => {
   // Shared WebSocket events consumed by other hooks (e.g. useGroups, ChatRoom)
   const [incomingMessage, setIncomingMessage] = useState(null);
   const [newMemberEvent, setNewMemberEvent] = useState(null);
+  const [memberLeftEvent, setMemberLeftEvent] = useState(null);
 
   // Load any pending invitations when the user logs in
   useEffect(() => {
@@ -65,6 +66,9 @@ export const NotificationsProvider = ({ children }) => {
         else if (msg.type === 'chat.member_joined') {
           setNewMemberEvent(msg.data);
         }
+        else if (msg.type === 'chat.member_left') {
+          setMemberLeftEvent(msg.data);
+        }
       } catch (e) {
         console.error('Error parsing WS message', e);
       }
@@ -88,6 +92,7 @@ export const NotificationsProvider = ({ children }) => {
         removeInvitation,
         incomingMessage,
         newMemberEvent,
+        memberLeftEvent,
       }}
     >
       {children}
